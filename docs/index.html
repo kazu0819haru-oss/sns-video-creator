@@ -19,7 +19,46 @@
 
 <section class="tab-panel is-active" id="panel-timing">
   <div class="step-bar" id="step-bar-timing"></div>
-  <p class="meta">Timing モードは別タスクで実装します。</p>
+
+  <div class="toolbar">
+    <h1 style="font-family:var(--font-display);font-size:18px;letter-spacing:0.06em">Timing Editor</h1>
+    <input type="file" id="t-audio-input" accept="audio/*" hidden />
+    <button class="btn" id="t-pick-btn">音源を選択</button>
+    <button class="btn btn--primary" id="t-play-btn" disabled>▶ 再生</button>
+    <button class="btn" id="t-timing-btn" disabled style="background:#6d28d9;border-color:#6d28d9;">⬤ タイミング入力</button>
+    <button class="btn" id="t-reset-btn">リセット</button>
+    <input type="file" id="t-lrc-input" accept=".lrc,.txt" hidden />
+    <button class="btn" id="t-import-lrc-btn">↑ LRC 読み込み</button>
+    <button class="btn" id="t-export-lrc-btn" disabled>↓ LRC 書き出し</button>
+    <div style="flex:1"></div>
+    <span class="meta" id="t-meta">未読込</span>
+  </div>
+
+  <div class="seekrow">
+    <span class="meta" id="t-cur-time">0:00</span>
+    <input type="range" id="t-seek-bar" class="seek-bar" min="0" max="100" step="0.1" value="0" disabled />
+    <span class="meta" id="t-tot-time">0:00</span>
+  </div>
+
+  <div class="panel">
+    <div class="panel-header">
+      <h3>歌詞 / タイミング入力</h3>
+    </div>
+    <div class="panel-body is-open">
+      <div class="meta" style="line-height:1.7">
+        ① 歌詞を貼り付け → ② 音源を選択 → ③ 「タイミング入力」を押して再生 →
+        各行の歌い始めで <kbd style="background:var(--bg-3);border:1px solid var(--border);padding:1px 6px;border-radius:4px">Space</kbd>
+        / 間奏は <kbd style="background:var(--bg-3);border:1px solid var(--border);padding:1px 6px;border-radius:4px">Enter</kbd>
+        / 戻る <kbd style="background:var(--bg-3);border:1px solid var(--border);padding:1px 6px;border-radius:4px">←</kbd>
+      </div>
+      <textarea id="t-lyrics-input" placeholder="歌詞をここに貼り付け" style="background:var(--bg-3);border:1px solid var(--border);border-radius:8px;color:var(--fg);padding:10px 12px;font-size:13px;font-family:'Noto Sans JP',sans-serif;line-height:1.8;resize:vertical;min-height:120px"></textarea>
+      <div id="t-timing-status" style="display:none;background:rgba(229,30,48,0.1);border:1px solid rgba(229,30,48,0.3);border-radius:10px;padding:12px 16px">
+        <div class="meta">♪ 次にスタンプ <span id="t-timing-progress"></span></div>
+        <div id="t-timing-current-line" style="font-size:17px;font-weight:700;line-height:1.5;margin-top:6px"></div>
+      </div>
+      <div id="t-lyric-line-list" style="display:flex;flex-direction:column;gap:2px;max-height:200px;overflow-y:auto"></div>
+    </div>
+  </div>
 </section>
 
 <section class="tab-panel" id="panel-creator">
