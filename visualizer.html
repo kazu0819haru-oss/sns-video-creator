@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Audio Visualizer</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;700;900&family=Noto+Sans+JP:wght@400;700;900&family=Shippori+Mincho+B1:wght@400;500&display=swap" rel="stylesheet" />
+<style>
+:root {
+  --bone: #ffffff; --ink: #0a0a0a;
+  --moss: #1a9d52; --moss-soft: #4ec07d;
+  --line: rgba(255,255,255,0.18);
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+html, body { height: 100%; background: #0a0a0a; color: var(--bone);
+  font-family: 'Inter','Noto Sans JP',system-ui,sans-serif; -webkit-font-smoothing: antialiased; }
+body { display: flex; flex-direction: column; min-height: 100vh; padding: 24px; gap: 18px; }
+.toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px;
+  padding: 12px 16px; background: rgba(255,255,255,0.04);
+  border: 1px solid var(--line); border-radius: 14px; backdrop-filter: blur(8px); }
+.toolbar h1 { font-family: 'Anton',sans-serif; font-size: 18px; letter-spacing: 0.06em; margin-right: 8px; }
+.toolbar h1 small { font-family: 'Noto Sans JP',sans-serif; font-weight: 400; font-size: 12px; opacity: 0.6; margin-left: 6px; }
+.btn { display: inline-flex; align-items: center; gap: 6px;
+  padding: 8px 14px; border-radius: 999px; border: 1px solid var(--line);
+  background: rgba(255,255,255,0.06); color: var(--bone);
+  font-size: 13px; font-weight: 600; cursor: pointer;
+  transition: background 0.2s ease, transform 0.05s ease; }
+.btn:hover { background: rgba(255,255,255,0.14); }
+.btn:active { transform: translateY(1px); }
+.btn--primary { background: var(--moss); border-color: var(--moss); }
+.btn--primary:hover { background: var(--moss-soft); }
+.btn--rec { background: #c81e3a; border-color: #c81e3a; }
+.btn--rec.is-recording { animation: pulse 1s ease-in-out infinite; }
+@keyframes pulse { 0%,100% { opacity: 1; } 50% { opacity: 0.5; } }
+.btn:disabled { opacity: 0.35; cursor: not-allowed; }
+.select { padding: 8px 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: rgba(255,255,255,0.06); color: var(--bone); font-size: 13px; }
+.toggle { display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 12px; border-radius: 999px; border: 1px solid var(--line);
+  background: rgba(255,255,255,0.04); font-size: 12px; cursor: pointer; }
+.toggle input { accent-color: var(--moss); }
+.spacer { flex: 1; }
+.meta { font-size: 12px; opacity: 0.65; }
+.stage { flex: 1; display: flex; align-items: center; justify-content: center; min-height: 0; }
+.canvas-wrap { position: relative; background: #000; border-radius: 16px; overflow: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,0.6);
+  aspect-ratio: 9/16; height: 100%; max-height: calc(100vh - 220px); }
+.canvas-wrap[data-aspect="1:1"]  { aspect-ratio: 1/1; }
+.canvas-wrap[data-aspect="16:9"] { aspect-ratio: 16/9; }
+canvas { display: block; width: 100%; height: 100%; }
+.drop { position: absolute; inset: 0; display: flex; flex-direction: column;
+  align-items: center; justify-content: center; text-align: center; gap: 14px; padding: 24px;
+  background: rgba(0,0,0,0.55); backdrop-filter: blur(6px);
+  font-family: 'Noto Sans JP',sans-serif; pointer-events: none; transition: opacity 0.3s ease; }
+.drop.is-hidden { opacity: 0; }
+.drop h2 { font-family: 'Anton',sans-serif; font-size: 36px; letter-spacing: 0.06em; }
+.drop p { opacity: 0.75; font-size: 14px; line-height: 1.6; }
+.drop .pill { margin-top: 8px; padding: 8px 16px; background: var(--moss); border-radius: 999px; font-weight: 700; font-size: 13px; }
+.seekrow { display: flex; align-items: center; gap: 10px; padding: 0 4px; }
+.seek-bar { flex: 1; -webkit-appearance: none; appearance: none; height: 4px; border-radius: 2px;
+  background: rgba(255,255,255,0.18); cursor: pointer; accent-color: #1a9d52; outline: none; }
+.seek-bar::-webkit-slider-thumb { -webkit-appearance: none; width: 14px; height: 14px;
+  border-radius: 50%; background: #1a9d52; cursor: pointer; }
+.seek-bar:disabled { opacity: 0.3; cursor: not-allowed; }
+.hint { text-align: center; font-size: 12px; opacity: 0.55; padding-bottom: 8px; }
+.hint code { background: rgba(255,255,255,0.08); padding: 2px 6px; border-radius: 4px; font-family: ui-monospace,monospace; }
+.lyrics-section { border: 1px solid var(--line); border-radius: 14px; overflow: hidden; background: rgba(255,255,255,0.03); }
+.lyrics-header-row { display: flex; align-items: center; justify-content: space-between; padding: 10px 16px; }
+.lyrics-header-row h3 { font-size: 13px; font-weight: 600; opacity: 0.75; letter-spacing: 0.04em; }
+.lyrics-body { display: none; flex-direction: column; gap: 10px; padding: 14px 16px; border-top: 1px solid var(--line); }
+.lyrics-body.is-open { display: flex; }
+textarea.lyrics-input { background: rgba(255,255,255,0.05); border: 1px solid var(--line); border-radius: 8px; color: var(--bone); padding: 10px 12px; font-size: 13px; font-family: 'Noto Sans JP', sans-serif; line-height: 1.8; resize: vertical; min-height: 70px; max-height: 180px; outline: none; }
+textarea.lyrics-input:focus { border-color: var(--moss); }
+.lyrics-controls { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+.btn--time { background: #6d28d9; border-color: #6d28d9; }
+.btn--time:hover { background: #7c3aed; }
+.btn--time.is-active { background: #c81e3a; border-color: #c81e3a; animation: pulse 1s ease-in-out infinite; }
+.timing-hint { font-size: 12px; opacity: 0.6; line-height: 1.6; }
+.timing-hint kbd { background: rgba(255,255,255,0.12); border: 1px solid rgba(255,255,255,0.2); padding: 1px 6px; border-radius: 4px; font-family: ui-monospace,monospace; font-size: 11px; }
+.lyric-line-list { display: flex; flex-direction: column; gap: 2px; max-height: 130px; overflow-y: auto; }
+.lyric-line-item { display: flex; align-items: center; gap: 10px; padding: 4px 8px; border-radius: 6px; font-size: 12px; }
+.lyric-line-item.is-timing-cursor { background: rgba(229,30,48,0.22); }
+.lyric-line-item.is-playhead { background: rgba(26,157,82,0.22); }
+.lyric-time { font-family: ui-monospace, monospace; min-width: 62px; opacity: 0.55; font-size: 11px; }
+.lyric-text { flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.lyric-retime-btn { flex-shrink: 0; background: none; border: 1px solid rgba(255,255,255,0.18); border-radius: 4px; color: rgba(255,255,255,0.4); font-size: 10px; padding: 1px 6px; cursor: pointer; white-space: nowrap; }
+.lyric-retime-btn:hover { border-color: var(--moss); color: var(--moss); }
+.timing-status { background: rgba(229,30,48,0.1); border: 1px solid rgba(229,30,48,0.3); border-radius: 10px; padding: 12px 16px; display: none; }
+.timing-status.is-visible { display: block; }
+.timing-status-label { font-size: 11px; opacity: 0.65; margin-bottom: 6px; }
+.timing-status-line { font-size: 17px; font-weight: 700; font-family: 'Noto Sans JP', sans-serif; line-height: 1.5; }
+.lyrics-count { font-size: 11px; opacity: 0.55; align-self: center; }
+.text-input { padding: 7px 10px; border-radius: 999px; border: 1px solid var(--line); background: rgba(255,255,255,0.06); color: var(--bone); font-size: 13px; outline: none; }
+.text-input:focus { border-color: var(--moss); }
+.text-input::placeholder { opacity: 0.38; }
+.slider-row { display: flex; align-items: center; gap: 10px; }
+.slider-row label { font-size: 12px; opacity: 0.65; white-space: nowrap; }
+.slider-row span { font-size: 12px; opacity: 0.65; min-width: 34px; }
+</style>
+</head>
+<body>
+
+<div class="toolbar">
+  <h1>Audio Visualizer</h1>
+  <input type="file" id="audio-input" accept="audio/*" hidden />
+  <button class="btn" id="pick-btn">音源を選択</button>
+  <button class="btn btn--primary" id="play-btn" disabled>▶ 再生</button>
+  <button class="btn btn--rec" id="rec-btn" disabled>● 録画</button>
+  <select class="select" id="aspect-select" title="アスペクト比">
+    <option value="9:16" selected>9:16 (Shorts)</option>
+    <option value="1:1">1:1</option>
+    <option value="16:9">16:9</option>
+  </select>
+  <select class="select" id="style-select" title="ビジュアルスタイル">
+    <option value="red-frame" selected>Red Frame + Wave (推奨)</option>
+    <option value="rainbow-bars">Rainbow Bars (横スペクトラム)</option>
+    <option value="gold-aura">Gold Aura Ring</option>
+    <option value="mono-lines">Mono Lines (白円)</option>
+  </select>
+  <label class="toggle"><input type="checkbox" id="particles-toggle" checked /> 粒子</label>
+  <label class="toggle"><input type="checkbox" id="jacket-toggle" checked /> ジャケ表示</label>
+  <label class="toggle"><input type="checkbox" id="title-toggle" checked /> タイトル表示</label>
+  <label class="toggle"><input type="checkbox" id="lyrics-canvas-toggle" checked /> 歌詞表示</label>
+  <span style="width:1px;height:22px;background:var(--line);margin:0 2px"></span>
+  <input type="text" class="text-input" id="song-title-input" placeholder="曲名" style="width:100px" />
+  <input type="text" class="text-input" id="band-name-input" placeholder="バンド名" style="width:110px" />
+  <div class="spacer"></div>
+  <span class="meta" id="meta">未読込</span>
+</div>
+
+<div class="seekrow">
+  <span class="meta" id="cur-time">0:00</span>
+  <input type="range" id="seek-bar" class="seek-bar" min="0" max="100" step="0.1" value="0" disabled />
+  <span class="meta" id="tot-time">0:00</span>
+</div>
+
+<div class="lyrics-section">
+  <div class="lyrics-header-row">
+    <h3>歌詞 / タイミング入力</h3>
+    <button class="btn" id="lyrics-panel-toggle" style="padding:5px 12px;font-size:12px">▲ 閉じる</button>
+  </div>
+  <div class="lyrics-body is-open" id="lyrics-body">
+    <div class="timing-hint">
+      <b>① 歌詞を貼り付け</b>（改行・空行そのままでOK）→
+      <b>② 音源を選択</b> →
+      <b>③「タイミング入力」を押して再生</b> →
+      再生中に各行の歌い始めで <kbd>Space</kbd> ／ 間奏・無音区間の始まりで <kbd>Enter</kbd> ／ 押しすぎたら <kbd>←</kbd> で1つ戻る
+    </div>
+    <textarea class="lyrics-input" id="lyrics-input" placeholder="歌詞をここに貼り付け（改行・空行そのままでOK）"></textarea>
+    <div class="lyrics-controls">
+      <input type="file" id="lrc-input" accept=".lrc,.txt" hidden />
+      <button class="btn" id="import-lrc-btn">↑ LRC 読み込み</button>
+      <button class="btn btn--time" id="timing-btn" disabled>⬤ タイミング入力</button>
+      <button class="btn" id="reset-timing-btn">リセット</button>
+      <button class="btn" id="export-lrc-btn" disabled>↓ LRC 書き出し</button>
+      <span class="lyrics-count" id="lyrics-count"></span>
+    </div>
+    <div class="slider-row">
+      <label for="lyrics-y-slider">歌詞の縦位置</label>
+      <input type="range" id="lyrics-y-slider" min="15" max="95" value="50" step="1" class="seek-bar" style="width:120px;flex:none" />
+      <span id="lyrics-y-val">50%</span>
+    </div>
+    <div class="timing-status" id="timing-status">
+      <div class="timing-status-label">♪ 次にスタンプ　<span id="timing-progress"></span></div>
+      <div class="timing-status-line" id="timing-current-line"></div>
+    </div>
+    <div class="lyric-line-list" id="lyric-line-list"></div>
+  </div>
+</div>
+
+<div class="stage">
+  <div class="canvas-wrap" id="canvas-wrap" data-aspect="9:16">
+    <canvas id="canvas" width="1080" height="1920"></canvas>
+    <div class="drop" id="drop">
+      <h2>DROP AUDIO HERE</h2>
+      <p>音源ファイル（mp3 / wav / m4a など）を<br/>このエリアにドロップ、または「音源を選択」から読み込んでください。</p>
+      <div class="pill">音源をドロップ / 選択</div>
+    </div>
+  </div>
+</div>
+
+<div class="hint">
+  録画 → <code id="dl-name">visualizer.webm</code> がDLされます。mp4化:
+  <code>ffmpeg -i input.webm -c:v libx264 -c:a aac output.mp4</code>
+</div>
+
+<script src="visualizer.js"></script>
+</body>
+</html>

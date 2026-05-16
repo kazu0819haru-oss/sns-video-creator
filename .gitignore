@@ -1,0 +1,9 @@
+.superpowers/
+node_modules/
+*.log
+.DS_Store
+Thumbs.db
+*.webm
+*.mp4
+*.wav
+*.mp3
