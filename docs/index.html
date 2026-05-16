@@ -63,7 +63,49 @@
 
 <section class="tab-panel" id="panel-creator">
   <div class="step-bar" id="step-bar-creator"></div>
-  <p class="meta">Creator モードは別タスクで実装します。</p>
+
+  <div class="toolbar">
+    <h1 style="font-family:var(--font-display);font-size:18px;letter-spacing:0.06em">Creator</h1>
+    <input type="file" id="c-audio-input" accept="audio/*" hidden />
+    <button class="btn" id="c-pick-btn">音源を選択</button>
+    <button class="btn btn--primary" id="c-play-btn" disabled>▶ 再生</button>
+    <button class="btn btn--rec" id="c-rec-btn" disabled>● 録画</button>
+    <input type="file" id="c-lrc-input" accept=".lrc,.txt" hidden />
+    <button class="btn" id="c-import-lrc-btn">↑ LRC 読み込み</button>
+    <select class="select" id="c-aspect-select">
+      <option value="9:16" selected>9:16</option>
+      <option value="1:1">1:1</option>
+      <option value="16:9">16:9</option>
+    </select>
+    <select class="select" id="c-style-select"></select>
+    <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--bg-2);font-size:12px;cursor:pointer">
+      <input type="checkbox" id="c-particles-toggle" checked style="accent-color:var(--accent)" /> 粒子
+    </label>
+    <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--bg-2);font-size:12px;cursor:pointer">
+      <input type="checkbox" id="c-lyrics-toggle" checked style="accent-color:var(--accent)" /> 歌詞
+    </label>
+    <input type="text" class="text-input" id="c-song-title" placeholder="曲名" style="width:120px" />
+    <input type="text" class="text-input" id="c-band-name" placeholder="バンド名" style="width:130px" />
+    <div style="flex:1"></div>
+    <span class="meta" id="c-meta">未読込</span>
+  </div>
+
+  <div class="seekrow">
+    <span class="meta" id="c-cur-time">0:00</span>
+    <input type="range" id="c-seek-bar" class="seek-bar" min="0" max="100" step="0.1" value="0" disabled />
+    <span class="meta" id="c-tot-time">0:00</span>
+  </div>
+
+  <div class="stage">
+    <div class="canvas-wrap" id="c-canvas-wrap" data-aspect="9:16">
+      <canvas id="c-canvas" width="1080" height="1920"></canvas>
+      <div class="drop" id="c-drop">
+        <h2>DROP AUDIO HERE</h2>
+        <p>音源ファイル（mp3 / wav / m4a など）を<br/>このエリアにドロップ、または「音源を選択」から読み込み</p>
+        <div class="pill">音源をドロップ / 選択</div>
+      </div>
+    </div>
+  </div>
 </section>
 
 <script type="module" src="js/app.js"></script>

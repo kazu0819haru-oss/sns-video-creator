@@ -1,4 +1,5 @@
 import { initTimingTab } from './timing/timing-tab.js';
+import { initCreatorTab } from './creator/creator-tab.js';
 
 const tabs = document.querySelectorAll('.tab');
 const panels = document.querySelectorAll('.tab-panel');
@@ -12,4 +13,4 @@ tabs.forEach(btn => {
 });
 
 initTimingTab();
-// initCreatorTab() は次のタスクで追加
+initCreatorTab();
