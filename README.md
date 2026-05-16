@@ -1,85 +1,49 @@
-# NiSSHëL「無頼」Audio Visualizer
+# Audio Visualizer
 
-縦型ショート (9:16) 想定のオーディオビジュアライザー。ブラウザだけで動きます。
+ブラウザだけで動くオーディオビジュアライザー。音源にビジュアルや歌詞同期を付けてSNSショート動画を作成できる。
 
-## 音源の置き方（自動ロード）
+## 機能
 
-`無頼.wav` を **`C:\AI\Claude\nisshel-mv\` フォルダに `burai.wav` という名前でコピー** してから `visualizer.html` を開くと、ページ起動時に音源が自動で読み込まれます（同名で `audio.wav` / `audio.mp3` でもOK）。
+- 🎵 **Timing**: 歌詞貼り付け → 再生中にスペースキーでタイミング入力 → LRC書き出し
+- 🎬 **Creator**: 音源＋LRCから縦動画（9:16 / 1:1 / 16:9）を作成、録画
+- 🎨 4種のビジュアルスタイル（Red Frame / Rainbow Bars / Gold Aura / Mono Lines）
+- 📝 歌詞オーバーレイ、間奏マーカー対応
 
-> 半角ファイル名（burai.wav）を推奨。日本語ファイル名でも動くことが多いですが、ブラウザ依存のため。
+## ローカルで動かす
 
-自動ロードがうまくいかなくても、画面上の「音源を選択」ボタンや、キャンバスへの D&D で手動読込みできます。波形・スペクトラムはどちらの場合でも音声に追従します。
-
-## ファイル
-
-- `visualizer.html` — UI本体（同フォルダの `visualizer.js` を読み込み）
-- `visualizer.js` — 描画・録画ロジック
-- `README.md` — この手順書
-
-## ビジュアルスタイル（参考動画と対応）
-
-| スタイル | 参考動画 | 見た目 |
-|---|---|---|
-| Red Frame + Wave (推奨デフォルト) | fhQEOaD2WJU | 中央にジャケ、周りを赤い円形スペクトラムが囲む、下に白い3層波形 |
-| Rainbow Bars | a86cby2r2Ao | 画面下半分に横一列のレインボーバー（シアン→マゼンタ） |
-| Gold Aura Ring | M_McGPpRaa8 | 黄色く脈打つオーラリング |
-| Mono Lines | c3iF3rEENKQ | 白の細い円形ライン・スペクトラム（ミニマル） |
-
-それぞれ「ジャケ表示」「タイトル表示」「粒子」のON/OFFで雰囲気を切り替えられます。
-
-## 使い方（プレビュー）
-
-1. `visualizer.html` をダブルクリックでブラウザ（Chrome / Edge 推奨）で開く
-2. 「音源を選択」を押して 迷彩 の音源ファイルを読み込む（mp3 / wav / m4a など）
-   - キャンバスに直接ドラッグ＆ドロップでも OK
-3. アスペクト比とスタイルを選ぶ
-   - 9:16 = Shorts / Reels / TikTok 向け
-   - 1:1 = Instagram 投稿向け
-   - 16:9 = YouTube 通常動画向け
-   - スタイルは Circular（円形スペクトラム）/ Bars（棒）/ Wave（波形）の 3 種
-4. 「▶ 再生」で動作確認
-
-## 録画 → mp4 書き出し手順
-
-### A. 内蔵録画ボタン → ffmpeg で変換（推奨）
-
-1. 音源を読み込んだ状態で「● 録画」を押す
-   - 録画ボタンが赤く点滅し、自動的に曲が頭から再生される
-2. 終了したいタイミングで再度ボタンを押す（曲が終わると自動停止）
-3. `nisshel-meisai-visualizer.webm` がダウンロードされる
-4. ffmpeg で mp4 化（事前に [ffmpeg](https://ffmpeg.org/) を入れておく）
+ES Modulesを使用しているため、ローカルサーバーが必要：
 
 ```bash
-ffmpeg -i nisshel-meisai-visualizer.webm -c:v libx264 -crf 18 -preset slow -c:a aac -b:a 192k -movflags +faststart nisshel-meisai-visualizer.mp4
+# Python の場合
+cd docs && python -m http.server 8000
+
+# Node.js の場合
+npx serve docs/
 ```
 
-書き出し中にカクつく場合は、録画中はブラウザのタブを前面のまま放置 / 他アプリを閉じてください。
+ブラウザで `http://localhost:8000` を開く。
 
-### B. OBS Studio で外部録画（高品質・確実）
+## GitHub Pages で公開する
 
-PC スペックが厳しいときや 60fps の安定収録が必要なときはこちら。
+1. GitHub で新規リポジトリ作成
+2. このプロジェクトをプッシュ:
+   ```bash
+   git remote add origin https://github.com/<USER>/<REPO>.git
+   git push -u origin main
+   ```
+3. リポジトリ Settings → Pages → Source を以下に設定:
+   - Branch: `main`
+   - Folder: `/docs`
+4. 数分後、`https://<USER>.github.io/<REPO>/` で公開される
 
-1. OBS Studio をインストール
-2. 「設定 → 映像」で 出力解像度を **1080×1920**（9:16 なら）にする
-3. ソース に「ウィンドウキャプチャ」を追加して `visualizer.html` のブラウザを指定
-4. 音声は「アプリケーション音声キャプチャ」または「デスクトップ音声」
-5. 録画ボタンで開始 → ブラウザの「▶ 再生」を押す
-6. 出力フォルダから mp4 を取得（OBS の出力フォーマットを mp4 にしておく）
+## 録画した動画を mp4 化（任意）
 
-## TikTok / YouTube Shorts への投稿のコツ
+録画は WebM 形式で出力される（MP4直接出力は v2 計画中）。mp4 が必要な場合は ffmpeg:
 
-- 縦動画は **1080×1920 / 9:16** で書き出し
-- 60秒以内に収めるとショートとして扱われる（YouTube は 3 分まで可）
-- 冒頭 3 秒で「曲名 / バンド名」が見えるように作っているので、サブ要素として歌詞テロップを上から重ねると視聴維持率が上がります
-- 投稿時のキャプションに `#NiSSHëL #迷彩 #名古屋バンド #ギターロック` 系を付ける
+```bash
+ffmpeg -i input.webm -c:v libx264 -crf 18 -preset slow -c:a aac -b:a 192k -movflags +faststart output.mp4
+```
 
-## カスタマイズしたい時
+## ライセンス
 
-`visualizer.html` の `<script>` 内、以下の関数あたりが描画本体です:
-
-- `drawCircular(...)` — 円形スペクトラム
-- `drawBars(...)` — 棒グラフ
-- `drawWave(...)` — 波形
-- `drawOverlay(...)` — タイトル「迷彩」/ NiSSHëL ロゴ / プログレスバー
-
-色を変える場合は冒頭の `:root` の CSS 変数と、JS 内の `'#1a9d52'`（モスグリーン）を置き換えればトーン変更できます。
+MIT
