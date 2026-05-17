@@ -118,7 +118,8 @@ export class IntroOutro {
 
     if (d.subtitle) {
       const fs = Math.round(H * 0.025 * (d.subtitleSize ?? 1));
-      ctx.font = `400 ${fs}px ${d.subtitleFont || '"Shippori Mincho B1", serif'}`;
+      // サブのフォントはタイトルと統一（user 仕様）
+      ctx.font = `400 ${fs}px ${d.titleFont || '"Shippori Mincho B1", serif'}`;
       ctx.fillStyle = d.subtitleColor || 'rgba(255,255,255,0.7)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';

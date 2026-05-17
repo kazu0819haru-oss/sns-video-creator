@@ -145,11 +145,27 @@ export class Timeline {
       tools.appendChild(delBtn);
       bar.appendChild(tools);
 
+      // 先頭クリップの左トリムを動かしたら、その分だけ音源 trimStart も追従させる
+      let dragStartTrim = null;
       this._addTrimHandles(
         bar, fill, clip.duration,
         () => clip.trimStart,
         () => clip.trimEnd,
-        (s, finalize) => this.videoClips.setTrim(i, s, clip.trimEnd, !finalize),
+        (s, finalize) => {
+          if (dragStartTrim === null) dragStartTrim = clip.trimStart;
+          this.videoClips.setTrim(i, s, clip.trimEnd, !finalize);
+          if (finalize) {
+            if (i === 0) {
+              const delta = clip.trimStart - dragStartTrim;
+              if (delta !== 0) {
+                const cur = this.audioTrim.trimStart || 0;
+                this.audioTrim.setStart(cur + delta);
+                // render() が videoClips._notify から発火するのでスペーサーも更新される
+              }
+            }
+            dragStartTrim = null;
+          }
+        },
         (e, finalize) => this.videoClips.setTrim(i, clip.trimStart, e, !finalize),
       );
 
