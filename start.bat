@@ -1,25 +1,23 @@
 @echo off
-chcp 65001 >nul 2>&1
 title Audio Visualizer
 
 cd /d "%~dp0docs"
 
 echo.
 echo  ============================================
-echo   Audio Visualizer - ローカルサーバー起動中
+echo   Audio Visualizer - Local Server
 echo  ============================================
 echo.
 echo   URL: http://localhost:8000
-echo   終了: このウィンドウを閉じる か Ctrl+C
+echo   Stop: Close this window or press Ctrl+C
 echo.
 
-REM 2秒後にブラウザを自動で開く（並行実行）
+REM Open browser after 2 seconds (in parallel)
 start "" /MIN cmd /c "ping -n 3 127.0.0.1 >nul && start http://localhost:8000"
 
-REM Python HTTP サーバーを起動
+REM Start Python HTTP server (blocks until Ctrl+C)
 python -m http.server 8000
 
-REM サーバー終了後一時停止
 echo.
-echo  サーバーを停止しました。
+echo  Server stopped.
 pause
