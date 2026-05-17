@@ -29,6 +29,8 @@ export class IntroOutro {
       subtitleColor: '#cccccc',
       subtitleSize: 1.0,
       subtitleY: 0.5,
+      bgColor: '#0a0a0a',
+      bgOpacity: 0.7,
       fadeOut: 0.6,
     };
     this.outro = {
@@ -46,6 +48,8 @@ export class IntroOutro {
       subtitleSize: 1.0,
       subtitleY: 0.38,
       qrY: 0.55,
+      bgColor: '#0a0a0a',
+      bgOpacity: 0.7,
       fadeIn: 0.6,
     };
     this._qrCache = { url: '', dataUrl: '' };
@@ -94,8 +98,12 @@ export class IntroOutro {
     ctx.save();
     ctx.globalAlpha = a;
 
-    ctx.fillStyle = '#0a0a0a';
-    ctx.fillRect(0, 0, W, H);
+    // 背景（カラー + 透過率、ビジュアライザー/動画が透けて見える）
+    const bgOp = d.bgOpacity ?? 1;
+    if (bgOp > 0) {
+      ctx.fillStyle = hexToRgba(d.bgColor || '#0a0a0a', bgOp);
+      ctx.fillRect(0, 0, W, H);
+    }
 
     if (d.title) {
       const fs = Math.round(H * 0.06 * (d.titleSize ?? 1));
@@ -146,4 +154,13 @@ export class IntroOutro {
       img.src = src;
     });
   }
+}
+
+function hexToRgba(hex, alpha) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+  if (!m) return `rgba(10,10,10,${alpha})`;
+  const r = parseInt(m[1], 16);
+  const g = parseInt(m[2], 16);
+  const b = parseInt(m[3], 16);
+  return `rgba(${r},${g},${b},${alpha})`;
 }

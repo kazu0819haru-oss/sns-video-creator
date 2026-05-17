@@ -372,6 +372,11 @@ export function initCreatorTab() {
   buildTextSection($('c-text-controls'), state);
   buildEffectsSection($('c-effects-controls'), state);
   buildLogoSection($('c-logo-controls'), logo);
+
+  // 前回保存されたロゴを復元（非同期、完了時に Logo セクションを再構築）
+  logo.loadFromStorage().then(loaded => {
+    if (loaded) buildLogoSection($('c-logo-controls'), logo);
+  });
   buildSnsSection($('c-sns-controls'), introOutro, () => state.trackTitle);
 
   timeline = new Timeline($('c-timeline-body'), {
@@ -446,7 +451,7 @@ export function initCreatorTab() {
       if (!b || !logo.visible) return null;
       return { cx: W * logo.x, cy: H * logo.y, w: b.w, h: b.h };
     },
-    setPos: (x, y) => { logo.x = x; logo.y = y; },
+    setPos: (x, y) => { logo.x = x; logo.y = y; logo.saveToStorage(); },
   });
 
   // ============ 描画ループ ============
@@ -778,7 +783,7 @@ function buildLogoSection(container, logo) {
   const toggle = document.createElement('label');
   toggle.className = 'toggle-switch';
   toggle.innerHTML = `<input type="checkbox" ${logo.visible ? 'checked' : ''}><span class="toggle-slider"></span>`;
-  toggle.querySelector('input').addEventListener('change', e => { logo.visible = e.target.checked; });
+  toggle.querySelector('input').addEventListener('change', e => { logo.visible = e.target.checked; logo.saveToStorage(); });
   visRow.appendChild(toggle);
   container.appendChild(visRow);
 
@@ -805,6 +810,7 @@ function buildLogoSection(container, logo) {
   sizeInput.addEventListener('input', () => {
     logo.widthScale = parseFloat(sizeInput.value);
     sizeVal.textContent = (logo.widthScale * 100).toFixed(0) + '%';
+    logo.saveToStorage();
   });
   sizeWrap.appendChild(sizeInput);
   sizeWrap.appendChild(sizeVal);
@@ -834,6 +840,7 @@ function buildLogoSection(container, logo) {
   opInput.addEventListener('input', () => {
     logo.opacity = parseFloat(opInput.value);
     opVal.textContent = (logo.opacity * 100).toFixed(0) + '%';
+    logo.saveToStorage();
   });
   opWrap.appendChild(opInput);
   opWrap.appendChild(opVal);
@@ -860,6 +867,8 @@ function buildSnsSection(container, introOutro, getTrackTitle) {
   container.appendChild(makeSnsSubsection('イントロカード', introOutro.intro, [
     { key: 'enabled',  type: 'toggle', label: '表示' },
     { key: 'duration', type: 'range',  label: '秒数', min: 1, max: 6, step: 0.5, fmt: v => v + 's' },
+    { key: 'bgColor', type: 'color', label: '背景色' },
+    { key: 'bgOpacity', type: 'range', label: '背景不透明度', min: 0, max: 1, step: 0.05, fmt: v => Math.round(v * 100) + '%' },
     { key: 'title',    type: 'text',   label: 'タイトル', placeholder: '曲名など', suggest: SUGGESTIONS.introTitle },
     { key: 'titleFont', type: 'font',  label: 'タイトル書体' },
     { key: 'titleSize', type: 'range', label: 'タイトルサイズ', min: 0.5, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
@@ -875,6 +884,8 @@ function buildSnsSection(container, introOutro, getTrackTitle) {
   container.appendChild(makeSnsSubsection('アウトロカード', introOutro.outro, [
     { key: 'enabled',  type: 'toggle', label: '表示' },
     { key: 'duration', type: 'range',  label: '秒数', min: 1, max: 6, step: 0.5, fmt: v => v + 's' },
+    { key: 'bgColor', type: 'color', label: '背景色' },
+    { key: 'bgOpacity', type: 'range', label: '背景不透明度', min: 0, max: 1, step: 0.05, fmt: v => Math.round(v * 100) + '%' },
     { key: 'title',    type: 'text',   label: 'タイトル', placeholder: 'Follow / Listen', suggest: SUGGESTIONS.outroTitle },
     { key: 'titleFont', type: 'font',  label: 'タイトル書体' },
     { key: 'titleSize', type: 'range', label: 'タイトルサイズ', min: 0.5, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
