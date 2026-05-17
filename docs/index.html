@@ -6,7 +6,7 @@
 <title>Audio Visualizer</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
-<link href="https://fonts.googleapis.com/css2?family=Anton&family=Inter:wght@400;500;600;700;900&family=Noto+Sans+JP:wght@400;500;700;900&family=Shippori+Mincho+B1:wght@400;500;700&display=swap" rel="stylesheet" />
+<link href="https://fonts.googleapis.com/css2?family=Anton&family=Bebas+Neue&family=Dela+Gothic+One&family=Inter:wght@400;500;600;700;900&family=Kaisei+HarunoUmi:wght@700&family=Klee+One:wght@600&family=M+PLUS+1:wght@700&family=Noto+Sans+JP:wght@400;500;700;900&family=Rampart+One&family=Reggae+One&family=RocknRoll+One&family=Shippori+Antique+B1&family=Shippori+Mincho+B1:wght@400;500;700&family=Stick&family=Yuji+Syuku&family=Zen+Old+Mincho:wght@700;900&display=swap" rel="stylesheet" />
 <link rel="stylesheet" href="css/theme.css" />
 <link rel="stylesheet" href="css/ui.css" />
 </head>
@@ -96,15 +96,38 @@
     <span class="meta" id="c-tot-time">0:00</span>
   </div>
 
-  <div class="stage">
-    <div class="canvas-wrap" id="c-canvas-wrap" data-aspect="9:16">
-      <canvas id="c-canvas" width="1080" height="1920"></canvas>
-      <div class="drop" id="c-drop">
-        <h2>DROP AUDIO HERE</h2>
-        <p>音源ファイル（mp3 / wav / m4a など）を<br/>このエリアにドロップ、または「音源を選択」から読み込み</p>
-        <div class="pill">音源をドロップ / 選択</div>
+  <div class="creator-layout">
+    <div class="stage">
+      <div class="canvas-wrap" id="c-canvas-wrap" data-aspect="9:16">
+        <canvas id="c-canvas" width="1080" height="1920"></canvas>
+        <div class="drop" id="c-drop">
+          <h2>DROP AUDIO HERE</h2>
+          <p>音源ファイル（mp3 / wav / m4a など）を<br/>このエリアにドロップ、または「音源を選択」から読み込み</p>
+          <div class="pill">音源をドロップ / 選択</div>
+        </div>
+        <button class="btn edit-mode-btn" id="c-edit-mode-btn" title="テキスト・ロゴをドラッグで移動">✥ 配置編集</button>
       </div>
     </div>
+
+    <aside class="properties-panel" id="c-properties">
+      <!-- Text section -->
+      <details class="accordion" open>
+        <summary>📝 テキスト</summary>
+        <div class="accordion-body" id="c-text-controls"></div>
+      </details>
+
+      <!-- Effects section -->
+      <details class="accordion">
+        <summary>✨ 演出</summary>
+        <div class="accordion-body" id="c-effects-controls"></div>
+      </details>
+
+      <!-- Logo section -->
+      <details class="accordion">
+        <summary>🎯 ロゴ</summary>
+        <div class="accordion-body" id="c-logo-controls"></div>
+      </details>
+    </aside>
   </div>
 </section>
 
