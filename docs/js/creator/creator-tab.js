@@ -16,6 +16,9 @@ import { DragManager } from './text-positioning.js';
 import { attachFileDrop } from '../shared/file-drop.js';
 import { saveBlob } from '../shared/session.js';
 import { getLrcHistory, addToLrcHistory, clearLrcHistory } from '../shared/lrc-history.js';
+import { VideoClips } from './video-clips.js';
+import { AudioTrim } from './audio-trim.js';
+import { Timeline } from './timeline.js';
 
 const EFFECTS = [
   { id: 'none', label: 'なし' },
@@ -37,6 +40,10 @@ export function initCreatorTab() {
   const recorder = new Recorder();
   const logo = new Logo();
   const dragMgr = new DragManager(canvas);
+  const videoClips = new VideoClips();
+  const audioTrim = new AudioTrim();
+  let backgroundMode = 'visualizer'; // 'visualizer' | 'video'
+  let timeline = null;
 
   // 状態
   const state = {
@@ -60,6 +67,16 @@ export function initCreatorTab() {
   ]);
 
   // ============ 既存のセットアップ（音源・スタイル・アスペクト・再生・録画） ============
+
+  // 背景モード切替
+  const bgModeSel = $('c-bg-mode-select');
+  const timelinePanel = $('c-timeline-panel');
+  bgModeSel.addEventListener('change', e => {
+    backgroundMode = e.target.value;
+    timelinePanel.hidden = backgroundMode !== 'video';
+    $('c-style-select').disabled = backgroundMode === 'video';
+    $('c-particles-toggle').disabled = backgroundMode === 'video';
+  });
 
   const styleSel = $('c-style-select');
   getStyles().forEach(s => {
@@ -98,6 +115,8 @@ export function initCreatorTab() {
     const audio = audioGraph.loadFile(file);
     audio.addEventListener('loadedmetadata', () => {
       const dur = audio.duration;
+      audioTrim.setDuration(dur);
+      if (timeline) timeline.render();
       const m = Math.floor(dur / 60);
       const s = String(Math.floor(dur % 60)).padStart(2, '0');
       $('c-meta').textContent = `${file.name} - ${m}:${s}`;
@@ -115,6 +134,14 @@ export function initCreatorTab() {
       const m = Math.floor(audio.currentTime / 60);
       const s = String(Math.floor(audio.currentTime % 60)).padStart(2, '0');
       $('c-cur-time').textContent = `${m}:${s}`;
+      const snap = audioTrim.snap(audio.currentTime);
+      if (snap.ended) {
+        audio.pause();
+        state.isPlaying = false;
+        $('c-play-btn').textContent = '▶ 再生';
+        if (recorder.isRecording) recorder.stop();
+        videoClips.pauseAll();
+      }
     });
     audio.addEventListener('ended', () => {
       state.isPlaying = false;
@@ -132,6 +159,10 @@ export function initCreatorTab() {
       state.isPlaying = false;
       $('c-play-btn').textContent = '▶ 再生';
     } else {
+      const end = audioTrim.trimEnd ?? audioTrim.duration;
+      if (audioGraph.audio.currentTime < audioTrim.trimStart || audioGraph.audio.currentTime >= end) {
+        audioGraph.audio.currentTime = audioTrim.trimStart;
+      }
       audioGraph.audio.play();
       state.isPlaying = true;
       $('c-play-btn').textContent = '⏸ 一時停止';
@@ -252,6 +283,18 @@ export function initCreatorTab() {
       // 既存のロゴプレビューを更新する場合は再構築
       buildLogoSection($('c-logo-controls'), logo);
     },
+    onVideo: async (file) => {
+      try {
+        await videoClips.addClip(file);
+        if (backgroundMode !== 'video') {
+          bgModeSel.value = 'video';
+          bgModeSel.dispatchEvent(new Event('change'));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('動画の読み込みに失敗しました: ' + err.message);
+      }
+    },
     overlay: $('c-drop-overlay'),
   });
 
@@ -269,6 +312,27 @@ export function initCreatorTab() {
   buildTextSection($('c-text-controls'), state);
   buildEffectsSection($('c-effects-controls'), state);
   buildLogoSection($('c-logo-controls'), logo);
+
+  timeline = new Timeline($('c-timeline-body'), {
+    audioTrim,
+    videoClips,
+    onPickVideo: () => $('c-video-input').click(),
+    onSeek: t => { if (audioGraph.audio) audioGraph.audio.currentTime = t; },
+    getCurrentTime: () => audioGraph.audio?.currentTime || 0,
+  });
+
+  $('c-video-input').addEventListener('change', async e => {
+    const f = e.target.files?.[0];
+    if (f) {
+      try {
+        await videoClips.addClip(f);
+      } catch (err) {
+        console.error(err);
+        alert('動画の読み込みに失敗しました: ' + err.message);
+      }
+    }
+    $('c-video-input').value = '';
+  });
 
   // ============ 編集モード（ドラッグ配置） ============
   const editBtn = $('c-edit-mode-btn');
@@ -336,13 +400,19 @@ export function initCreatorTab() {
     }
     state.lastBass = state.lastBass * 0.85 + bass * 0.15;
 
-    if ($('c-particles-toggle').checked) {
-      particles.draw(ctx, W, H, state.lastBass);
-    }
-
-    const style = getStyleById(state.visualStyle);
-    if (style) {
-      style.drawFn(ctx, W, H, freq, time, state.lastBass, { showJacket: false });
+    if (backgroundMode === 'video') {
+      const ct = audioGraph.audio?.currentTime || 0;
+      const effective = audioTrim.effectiveTime(ct);
+      videoClips.sync(effective, state.isPlaying);
+      videoClips.draw(ctx, W, H);
+    } else {
+      if ($('c-particles-toggle').checked) {
+        particles.draw(ctx, W, H, state.lastBass);
+      }
+      const style = getStyleById(state.visualStyle);
+      if (style) {
+        style.drawFn(ctx, W, H, freq, time, state.lastBass, { showJacket: false });
+      }
     }
 
     // 歌詞インデックス・行開始時刻の追跡
