@@ -647,7 +647,7 @@ export function initCreatorTab() {
     const totalEff = audioTrim.effectiveDuration();
     const overlay = introOutro.getActiveOverlay(eff, totalEff);
     if (overlay) {
-      introOutro.draw(ctx, W, H, overlay).catch(e => console.error(e));
+      introOutro.draw(ctx, W, H, overlay);
     }
 
     dragMgr.drawHandles(ctx, W, H);

@@ -52,24 +52,27 @@ export class IntroOutro {
       bgOpacity: 0.7,
       fadeIn: 0.6,
     };
-    this._qrCache = { url: '', dataUrl: '' };
+    this._qrCache = { url: '', img: null };
+    this._qrPending = false;
   }
 
-  async _renderQR(url) {
-    if (!url) return null;
-    if (this._qrCache.url === url && this._qrCache.dataUrl) return this._qrCache.dataUrl;
-    const lib = await loadQRLib();
-    if (!lib) return null;
+  async _loadQRImage(url) {
+    if (!url) return;
+    if (this._qrCache.url === url && this._qrCache.img) return;
+    this._qrPending = true;
     try {
+      const lib = await loadQRLib();
+      if (!lib) return;
       const qr = lib(0, 'M');
       qr.addData(url);
       qr.make();
       const dataUrl = qr.createDataURL(8, 4);
-      this._qrCache = { url, dataUrl };
-      return dataUrl;
+      const img = await this._loadImage(dataUrl);
+      if (img) this._qrCache = { url, img };
     } catch (e) {
       console.error('QR 生成失敗:', e);
-      return null;
+    } finally {
+      this._qrPending = false;
     }
   }
 
@@ -90,7 +93,7 @@ export class IntroOutro {
     return null;
   }
 
-  async draw(ctx, W, H, active) {
+  draw(ctx, W, H, active) {
     if (!active) return;
     const a = active.alpha;
     const d = active.data;
@@ -128,19 +131,19 @@ export class IntroOutro {
     }
 
     if (active.kind === 'outro' && d.qrUrl) {
-      const dataUrl = await this._renderQR(d.qrUrl);
-      if (dataUrl) {
-        const img = await this._loadImage(dataUrl);
-        if (img) {
-          const size = Math.min(W, H) * 0.3;
-          const x = W / 2 - size / 2;
-          const y = H * (d.qrY ?? 0.55);
-          ctx.drawImage(img, x, y, size, size);
-          ctx.font = `500 ${Math.round(H * 0.018)}px "Inter", sans-serif`;
-          ctx.fillStyle = 'rgba(255,255,255,0.85)';
-          ctx.shadowBlur = 0;
-          ctx.fillText(d.qrUrl, W / 2, y + size + Math.round(H * 0.035));
-        }
+      // キャッシュ済みなら即描画、未ロードならバックグラウンドで読み込み開始
+      if (this._qrCache.url !== d.qrUrl || !this._qrCache.img) {
+        if (!this._qrPending) this._loadQRImage(d.qrUrl);
+      } else {
+        const img = this._qrCache.img;
+        const size = Math.min(W, H) * 0.3;
+        const x = W / 2 - size / 2;
+        const y = H * (d.qrY ?? 0.55);
+        ctx.shadowBlur = 0;
+        ctx.drawImage(img, x, y, size, size);
+        ctx.font = `500 ${Math.round(H * 0.018)}px "Inter", sans-serif`;
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillText(d.qrUrl, W / 2, y + size + Math.round(H * 0.035));
       }
     }
 
