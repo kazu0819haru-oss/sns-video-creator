@@ -454,8 +454,9 @@ export function initCreatorTab() {
     }
     state.lastBass = state.lastBass * 0.85 + bass * 0.15;
 
+    const ct = audioGraph.audio?.currentTime || 0;
+
     if (backgroundMode === 'video') {
-      const ct = audioGraph.audio?.currentTime || 0;
       const effective = audioTrim.effectiveTime(ct);
       videoClips.sync(effective, state.isPlaying);
       videoClips.draw(ctx, W, H);
@@ -470,7 +471,6 @@ export function initCreatorTab() {
     }
 
     // 歌詞インデックス・行開始時刻の追跡
-    const ct = audioGraph.audio?.currentTime || 0;
     const idx = lyrics.getCurrentIndex(ct);
     if (idx !== state.lastLineIdx) {
       state.lastLineIdx = idx;
@@ -493,7 +493,6 @@ export function initCreatorTab() {
     logo.draw(ctx, W, H);
 
     // intro/outro オーバーレイ（録画に含める）
-    const ct = audioGraph.audio?.currentTime || 0;
     const eff = audioTrim.effectiveTime(ct);
     const totalEff = audioTrim.effectiveDuration();
     const overlay = introOutro.getActiveOverlay(eff, totalEff);
