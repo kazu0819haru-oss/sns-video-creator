@@ -14,6 +14,8 @@ import { Recorder } from './recorder.js';
 import { Logo } from './logo.js';
 import { DragManager } from './text-positioning.js';
 import { attachFileDrop } from '../shared/file-drop.js';
+import { saveBlob } from '../shared/session.js';
+import { getLrcHistory, addToLrcHistory, clearLrcHistory } from '../shared/lrc-history.js';
 
 const EFFECTS = [
   { id: 'none', label: 'なし' },
@@ -149,12 +151,17 @@ export function initCreatorTab() {
       $('c-rec-btn').textContent = '● 録画';
       $('c-rec-btn').classList.remove('is-recording');
     } else {
-      recorder.start(canvas, audioGraph.destNode.stream, `${state.trackTitle}-visualizer.webm`);
-      recorder.onStop = () => {
+      recorder.onStop = async (blob) => {
+        const filename = `${state.trackTitle || 'visualizer'}-${formatStamp()}.webm`;
+        const result = await saveBlob(blob, filename);
         $('c-rec-btn').textContent = '● 録画';
         $('c-rec-btn').classList.remove('is-recording');
         stepGuide.markDone(2);
+        $('c-meta').textContent = result.savedTo === 'session'
+          ? `保存: ${result.path}`
+          : `保存: ${filename}（ダウンロード）`;
       };
+      recorder.start(canvas, audioGraph.destNode.stream);
       $('c-rec-btn').textContent = '■ 停止';
       $('c-rec-btn').classList.add('is-recording');
       audioGraph.resume();
@@ -166,22 +173,75 @@ export function initCreatorTab() {
     }
   });
 
+  // タイムスタンプ生成（ファイル名用）
+  function formatStamp() {
+    const d = new Date();
+    const p = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}-${p(d.getHours())}${p(d.getMinutes())}${p(d.getSeconds())}`;
+  }
+
+  function loadLRCContent(content, name) {
+    const parsed = parseLRC(content);
+    if (parsed.length === 0) return;
+    lyrics.lines = parsed;
+    if (name) addToLrcHistory(name, content);
+    rebuildLrcSelect();
+    $('c-meta').textContent = `LRC: ${name || '読込済み'} (${parsed.length} 行)`;
+  }
+
   function loadLRC(file) {
     const reader = new FileReader();
-    reader.onload = ev => {
-      const parsed = parseLRC(ev.target.result);
-      if (parsed.length === 0) return;
-      lyrics.lines = parsed;
-    };
+    reader.onload = ev => loadLRCContent(ev.target.result, file.name);
     reader.readAsText(file, 'utf-8');
   }
 
-  $('c-import-lrc-btn').addEventListener('click', () => $('c-lrc-input').click());
+  function rebuildLrcSelect() {
+    const sel = $('c-lrc-select');
+    const prev = sel.value;
+    sel.innerHTML = '';
+    const placeholder = new Option('↑ LRC を選択…', '');
+    placeholder.disabled = false;
+    sel.appendChild(placeholder);
+    sel.appendChild(new Option('📂 新規ファイルから選ぶ…', '__new__'));
+    const hist = getLrcHistory();
+    if (hist.length > 0) {
+      const sep = new Option('──── 履歴 ────', '__sep__');
+      sep.disabled = true;
+      sel.appendChild(sep);
+      hist.forEach((h, i) => {
+        const d = new Date(h.date);
+        const date = `${d.getMonth() + 1}/${d.getDate()}`;
+        sel.appendChild(new Option(`${h.name}  (${date})`, `__hist_${i}__`));
+      });
+      sel.appendChild(new Option('🗑 履歴をクリア', '__clear__'));
+    }
+    sel.value = '';
+  }
+
+  $('c-lrc-select').addEventListener('change', e => {
+    const v = e.target.value;
+    if (v === '__new__') {
+      $('c-lrc-input').click();
+    } else if (v === '__clear__') {
+      if (confirm('LRC 履歴をすべて削除しますか？')) {
+        clearLrcHistory();
+        rebuildLrcSelect();
+      }
+    } else if (v.startsWith('__hist_')) {
+      const idx = parseInt(v.slice('__hist_'.length, -2), 10);
+      const hist = getLrcHistory();
+      if (hist[idx]) loadLRCContent(hist[idx].content, hist[idx].name);
+    }
+    e.target.value = '';
+  });
+
   $('c-lrc-input').addEventListener('change', e => {
     const f = e.target.files?.[0];
     if (f) loadLRC(f);
     $('c-lrc-input').value = '';
   });
+
+  rebuildLrcSelect();
 
   // タブ全体にドラッグ&ドロップ（音源 + LRC + ロゴ画像）
   attachFileDrop($('panel-creator'), {

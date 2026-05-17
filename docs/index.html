@@ -15,6 +15,10 @@
 <nav class="tab-bar">
   <button class="tab is-active" data-tab="timing">🎵 Timing</button>
   <button class="tab" data-tab="creator">🎬 Creator</button>
+  <div class="session-control">
+    <span class="session-status" id="session-status">保存先: 📥 ダウンロード</span>
+    <button class="btn" id="session-btn">📁 セッションフォルダ…</button>
+  </div>
 </nav>
 
 <section class="tab-panel is-active" id="panel-timing">
@@ -106,7 +110,7 @@
     <button class="btn btn--primary" id="c-play-btn" disabled>▶ 再生</button>
     <button class="btn btn--rec" id="c-rec-btn" disabled>● 録画</button>
     <input type="file" id="c-lrc-input" accept=".lrc,.txt" hidden />
-    <button class="btn" id="c-import-lrc-btn">↑ LRC 読み込み</button>
+    <select class="select" id="c-lrc-select" title="LRC を読み込み（新規 or 履歴から）"></select>
     <select class="select" id="c-aspect-select">
       <option value="9:16" selected>9:16</option>
       <option value="1:1">1:1</option>

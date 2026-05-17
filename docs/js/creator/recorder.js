@@ -1,3 +1,4 @@
+// 録画。完了時に onStop(blob) を呼ぶ。保存先は呼び出し側が決める（セッション or DL）。
 export class Recorder {
   constructor() {
     this.mediaRecorder = null;
@@ -6,7 +7,7 @@ export class Recorder {
     this.onStop = null;
   }
 
-  start(canvas, audioStream, downloadName) {
+  start(canvas, audioStream) {
     const videoStream = canvas.captureStream(60);
     const combined = new MediaStream([
       ...videoStream.getVideoTracks(),
@@ -28,13 +29,7 @@ export class Recorder {
     };
     this.mediaRecorder.onstop = () => {
       const blob = new Blob(this.chunks, { type: 'video/webm' });
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement('a');
-      a.href = url;
-      a.download = downloadName;
-      a.click();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-      if (this.onStop) this.onStop();
+      if (this.onStop) this.onStop(blob);
     };
     this.mediaRecorder.start();
     this.isRecording = true;

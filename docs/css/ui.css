@@ -499,3 +499,49 @@ input[type="color"]::-webkit-color-swatch-wrapper { padding: 0; }
   0%, 100% { transform: translateY(0); }
   50% { transform: translateY(-8px); }
 }
+
+/* ============ Select Options Visibility Fix ============ */
+/* OS のデフォルトだと文字色が白背景に白文字で見えないことがある */
+.select option,
+.font-select option,
+select option {
+  background: #1a1a1a;
+  color: #ffffff;
+  padding: 6px 8px;
+}
+select option[disabled] {
+  background: #0a0a0a;
+  color: rgba(255,255,255,0.4);
+  font-style: italic;
+}
+
+/* ============ Session UI in Tab Bar ============ */
+.tab-bar {
+  /* 既存定義を拡張: 右側にセッション UI を入れる */
+  width: 100%;
+}
+.session-control {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-left: auto;
+  padding-left: 12px;
+  border-left: 1px solid var(--border);
+}
+.session-control .btn {
+  padding: 6px 12px;
+  font-size: 12px;
+}
+.session-status {
+  font-size: 11px;
+  color: var(--fg-muted);
+  font-family: ui-monospace, monospace;
+  max-width: 280px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.session-status.is-active {
+  color: var(--accent-soft);
+  font-weight: 600;
+}

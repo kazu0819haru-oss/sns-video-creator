@@ -23,12 +23,9 @@ export function buildLRC(lines) {
     .join('\n');
 }
 
-export function downloadLRC(content, filename) {
+import { saveBlob } from './session.js';
+
+export async function downloadLRC(content, filename) {
   const blob = new Blob([content], { type: 'text/plain' });
-  const url = URL.createObjectURL(blob);
-  const a = document.createElement('a');
-  a.href = url;
-  a.download = filename;
-  a.click();
-  setTimeout(() => URL.revokeObjectURL(url), 1000);
+  return await saveBlob(blob, filename);
 }

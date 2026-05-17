@@ -3,6 +3,7 @@ import { LyricsData } from '../shared/lyrics-data.js';
 import { formatLRCTime, parseLRC, buildLRC, downloadLRC } from '../shared/lrc.js';
 import { StepGuide } from '../ui/step-guide.js';
 import { attachFileDrop } from '../shared/file-drop.js';
+import { addToLrcHistory } from '../shared/lrc-history.js';
 
 export function initTimingTab() {
   const $ = id => document.getElementById(id);
@@ -105,13 +106,15 @@ export function initTimingTab() {
   function loadLRC(file) {
     const reader = new FileReader();
     reader.onload = ev => {
-      const parsed = parseLRC(ev.target.result);
+      const content = ev.target.result;
+      const parsed = parseLRC(content);
       if (parsed.length === 0) return;
       lyrics.lines = parsed;
       $('t-lyrics-input').value = parsed.map(l => l.text).join('\n');
       renderLyricList();
       $('t-timing-btn').disabled = !audioGraph.audio;
       $('t-export-lrc-btn').disabled = false;
+      addToLrcHistory(file.name, content);
       stepGuide.markDone(1);
       stepGuide.markDone(2);
     };
@@ -132,10 +135,15 @@ export function initTimingTab() {
     overlay: $('t-drop-overlay'),
   });
 
-  $('t-export-lrc-btn').addEventListener('click', () => {
+  $('t-export-lrc-btn').addEventListener('click', async () => {
     const content = buildLRC(lyrics.all);
-    downloadLRC(content, `${trackTitle || 'lyrics'}.lrc`);
+    const filename = `${trackTitle || 'lyrics'}.lrc`;
+    const result = await downloadLRC(content, filename);
+    addToLrcHistory(filename, content);
     stepGuide.markDone(3);
+    $('t-meta').textContent = result.savedTo === 'session'
+      ? `保存: ${result.path}`
+      : `保存: ${filename}（ダウンロード）`;
   });
 
   function enterTimingMode() {
