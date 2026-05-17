@@ -20,6 +20,7 @@ import { VideoClips } from './video-clips.js';
 import { AudioTrim } from './audio-trim.js';
 import { Timeline } from './timeline.js';
 import { History } from './history.js';
+import { listPresetNames, savePreset, loadPreset, deletePreset } from './preset.js';
 import { PRESETS, getPresetById } from './platform-presets.js';
 import { IntroOutro } from './intro-outro.js';
 import { PhonePreview } from './phone-preview.js';
@@ -154,6 +155,37 @@ export function initCreatorTab() {
 
   const wrap = $('c-canvas-wrap');
 
+  function clearAudio() {
+    if (!audioGraph.audio) return;
+    if (!confirm('読み込んだ音源を削除しますか？\n（再生・録画は停止します）')) return;
+    try { audioGraph.audio.pause(); } catch (_) {}
+    try { audioGraph.audio.src = ''; } catch (_) {}
+    audioGraph.audio = null;
+    state.trackTitle = '';
+    state.isPlaying = false;
+    if (recorder.isRecording) recorder.stop();
+    // タイムラインの音源・トリムも初期化
+    audioTrim.duration = 0;
+    audioTrim.trimStart = 0;
+    audioTrim.trimEnd = null;
+    // UI 復元
+    $('c-meta').textContent = '未読込';
+    $('c-tot-time').textContent = '0:00';
+    $('c-cur-time').textContent = '0:00';
+    $('c-seek-bar').value = 0;
+    $('c-seek-bar').disabled = true;
+    $('c-play-btn').disabled = true;
+    $('c-play-btn').textContent = '▶ 再生';
+    $('c-rec-btn').disabled = true;
+    $('c-rec-btn').textContent = '● 録画';
+    $('c-rec-btn').classList.remove('is-recording');
+    $('c-drop').classList.remove('is-hidden');
+    $('c-audio-clear-btn').style.display = 'none';
+    if (timeline) timeline.render();
+    if (history) history.clear();
+  }
+  $('c-audio-clear-btn').addEventListener('click', clearAudio);
+
   function loadAudio(file) {
     state.trackTitle = file.name.replace(/\.[^.]+$/, '');
     const audio = audioGraph.loadFile(file);
@@ -161,6 +193,7 @@ export function initCreatorTab() {
       const dur = audio.duration;
       audioTrim.setDuration(dur);
       if (timeline) timeline.render();
+      $('c-audio-clear-btn').style.display = 'inline-flex';
       const m = Math.floor(dur / 60);
       const s = String(Math.floor(dur % 60)).padStart(2, '0');
       $('c-meta').textContent = `${file.name} - ${m}:${s}`;
@@ -374,6 +407,64 @@ export function initCreatorTab() {
   buildTextSection($('c-text-controls'), state);
   buildEffectsSection($('c-effects-controls'), state);
   buildLogoSection($('c-logo-controls'), logo);
+  buildPresetSection($('c-preset-controls'), collectPresetData, applyPresetData);
+
+  // プリセットに保存/復元する設定一式を集める
+  function collectPresetData() {
+    return {
+      backgroundMode,
+      visualStyle: state.visualStyle,
+      aspect: $('c-aspect-select').value,
+      particles: $('c-particles-toggle').checked,
+      lyricsEnabled: $('c-lyrics-toggle').checked,
+      songTitle: $('c-song-title').value,
+      bandName: $('c-band-name').value,
+      title: { ...state.title },
+      band: { ...state.band },
+      lyrics: { ...state.lyrics },
+      intro: { ...introOutro.intro },
+      outro: { ...introOutro.outro },
+    };
+  }
+
+  function applyPresetData(data) {
+    if (!data) return;
+    if (data.backgroundMode) {
+      backgroundMode = data.backgroundMode;
+      $('c-bg-mode-select').value = data.backgroundMode;
+      $('c-bg-mode-select').dispatchEvent(new Event('change'));
+    }
+    if (data.visualStyle) {
+      state.visualStyle = data.visualStyle;
+      $('c-style-select').value = data.visualStyle;
+    }
+    if (data.aspect) {
+      $('c-aspect-select').value = data.aspect;
+      $('c-aspect-select').dispatchEvent(new Event('change'));
+    }
+    if (typeof data.particles === 'boolean') $('c-particles-toggle').checked = data.particles;
+    if (typeof data.lyricsEnabled === 'boolean') {
+      $('c-lyrics-toggle').checked = data.lyricsEnabled;
+      state.lyrics.enabled = data.lyricsEnabled;
+    }
+    if (typeof data.songTitle === 'string') {
+      $('c-song-title').value = data.songTitle;
+      state.title.text = data.songTitle;
+    }
+    if (typeof data.bandName === 'string') {
+      $('c-band-name').value = data.bandName;
+      state.band.text = data.bandName;
+    }
+    if (data.title) Object.assign(state.title, data.title);
+    if (data.band) Object.assign(state.band, data.band);
+    if (data.lyrics) Object.assign(state.lyrics, data.lyrics);
+    if (data.intro) Object.assign(introOutro.intro, data.intro);
+    if (data.outro) Object.assign(introOutro.outro, data.outro);
+    // UI を再構築して値を反映
+    buildTextSection($('c-text-controls'), state);
+    buildEffectsSection($('c-effects-controls'), state);
+    buildSnsSection($('c-sns-controls'), introOutro, () => state.trackTitle);
+  }
 
   // 前回保存されたロゴを復元（非同期、完了時に Logo セクションを再構築）
   logo.loadFromStorage().then(loaded => {
@@ -1057,4 +1148,105 @@ function makeSnsSubsection(title, target, fields) {
   });
 
   return wrap;
+}
+
+function buildPresetSection(container, getState, applyState) {
+  container.innerHTML = '';
+
+  // ヒント
+  const hint = document.createElement('div');
+  hint.className = 'sns-panel-hint';
+  hint.style.background = 'rgba(99,102,241,0.08)';
+  hint.style.borderColor = 'rgba(99,102,241,0.3)';
+  hint.textContent = 'テキスト・演出・SNS・背景などの設定を名前付きで保存。曲やシリーズごとに使い回せます。';
+  container.appendChild(hint);
+
+  // プリセット選択ドロップダウン
+  const row1 = document.createElement('div');
+  row1.className = 'field';
+  const lab1 = document.createElement('div');
+  lab1.className = 'field-label';
+  lab1.textContent = '保存済みプリセット';
+  row1.appendChild(lab1);
+
+  const select = document.createElement('select');
+  select.className = 'select';
+  select.style.width = '100%';
+
+  function refreshOptions() {
+    select.innerHTML = '';
+    select.appendChild(new Option('— 選択して読み込み —', ''));
+    const names = listPresetNames();
+    if (names.length === 0) {
+      const opt = new Option('（未保存）', '_empty');
+      opt.disabled = true;
+      select.appendChild(opt);
+    } else {
+      names.forEach(name => select.appendChild(new Option(name, name)));
+    }
+  }
+  refreshOptions();
+
+  select.addEventListener('change', () => {
+    if (!select.value) return;
+    const data = loadPreset(select.value);
+    if (data) {
+      applyState(data);
+      const meta = document.getElementById('c-meta');
+      if (meta) meta.textContent = `プリセット「${select.value}」を読込`;
+    }
+    select.value = '';
+  });
+  row1.appendChild(select);
+  container.appendChild(row1);
+
+  // ボタン群
+  const row2 = document.createElement('div');
+  row2.style.display = 'flex';
+  row2.style.gap = '6px';
+  row2.style.marginTop = '8px';
+
+  const saveBtn = document.createElement('button');
+  saveBtn.className = 'btn btn--primary';
+  saveBtn.textContent = '💾 現在の設定を保存';
+  saveBtn.style.flex = '1';
+  saveBtn.style.fontSize = '12px';
+  saveBtn.addEventListener('click', () => {
+    const existing = listPresetNames();
+    const suggested = existing.length === 0 ? 'My Preset 1' : `My Preset ${existing.length + 1}`;
+    const name = prompt('プリセット名を入力:', suggested);
+    if (!name) return;
+    if (existing.includes(name)) {
+      if (!confirm(`「${name}」は既に存在します。上書きしますか？`)) return;
+    }
+    if (savePreset(name, getState())) {
+      refreshOptions();
+      alert(`プリセット「${name}」を保存しました`);
+    }
+  });
+
+  const delBtn = document.createElement('button');
+  delBtn.className = 'btn';
+  delBtn.textContent = '🗑 削除';
+  delBtn.style.fontSize = '12px';
+  delBtn.addEventListener('click', () => {
+    const names = listPresetNames();
+    if (names.length === 0) {
+      alert('削除できるプリセットがありません');
+      return;
+    }
+    const name = prompt(`削除するプリセット名を入力:\n\n登録済み:\n${names.map(n => '・' + n).join('\n')}`);
+    if (!name) return;
+    if (!names.includes(name)) {
+      alert(`「${name}」は存在しません`);
+      return;
+    }
+    if (!confirm(`プリセット「${name}」を削除しますか？`)) return;
+    deletePreset(name);
+    refreshOptions();
+  });
+
+  row2.appendChild(saveBtn);
+  row2.appendChild(delBtn);
+  container.appendChild(row2);
 }
