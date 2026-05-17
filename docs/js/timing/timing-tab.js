@@ -242,18 +242,25 @@ export function initTimingTab() {
   }
 
   document.addEventListener('keydown', e => {
-    if (!timingMode) return;
-    if (document.activeElement.tagName === 'TEXTAREA' || document.activeElement.tagName === 'INPUT') return;
+    // Timing タブがアクティブな時だけ反応
+    if (!document.getElementById('panel-timing').classList.contains('is-active')) return;
+    const tag = document.activeElement.tagName;
+    if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;
+
     if (e.code === 'Space') {
       e.preventDefault();
-      stampLine();
-    } else if (e.code === 'Enter') {
+      if (timingMode) {
+        stampLine();
+      } else if (audioGraph.audio) {
+        $('t-play-btn').click();
+      }
+    } else if (e.code === 'Enter' && timingMode) {
       e.preventDefault();
       lyrics.insertBlank(timingIdx, audioGraph.audio.currentTime);
       timingIdx++;
       renderLyricList();
       updateTimingStatus();
-    } else if (e.code === 'ArrowLeft') {
+    } else if (e.code === 'ArrowLeft' && timingMode) {
       e.preventDefault();
       if (timingIdx > 0) {
         timingIdx--;

@@ -217,6 +217,17 @@ export function initCreatorTab() {
     state.isSeeking = false;
   });
 
+  // スペースキー：Creator タブで再生/停止トグル
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('panel-creator').classList.contains('is-active')) return;
+    const tag = document.activeElement.tagName;
+    if (tag === 'TEXTAREA' || tag === 'INPUT' || tag === 'SELECT') return;
+    if (e.code === 'Space' && audioGraph.audio) {
+      e.preventDefault();
+      $('c-play-btn').click();
+    }
+  });
+
   $('c-rec-btn').addEventListener('click', () => {
     if (!audioGraph.audio) return;
     if (recorder.isRecording) {

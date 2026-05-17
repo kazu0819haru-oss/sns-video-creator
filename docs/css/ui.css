@@ -959,3 +959,20 @@ body {
 .tl-bar--audio {
   cursor: pointer;
 }
+
+/* ============ Per-Accordion Inner Scroll ============ */
+/* 各アコーディオン body 内部で個別スクロール（外側パネル状態に依存しない確実版） */
+.accordion[open] > .accordion-body {
+  max-height: 60vh !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+/* SNS最適化はフィールド数が多いので少し広めに */
+.accordion[open] > #c-sns-controls {
+  max-height: 65vh !important;
+}
+/* スクロールバーの見栄え */
+.accordion-body::-webkit-scrollbar { width: 6px; }
+.accordion-body::-webkit-scrollbar-track { background: transparent; }
+.accordion-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
+.accordion-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
