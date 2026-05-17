@@ -2,6 +2,7 @@ import { AudioGraph } from '../shared/audio.js';
 import { LyricsData } from '../shared/lyrics-data.js';
 import { formatLRCTime, parseLRC, buildLRC, downloadLRC } from '../shared/lrc.js';
 import { StepGuide } from '../ui/step-guide.js';
+import { attachFileDrop } from '../shared/file-drop.js';
 
 export function initTimingTab() {
   const $ = id => document.getElementById(id);
@@ -101,10 +102,7 @@ export function initTimingTab() {
     $('t-export-lrc-btn').disabled = true;
   });
 
-  $('t-import-lrc-btn').addEventListener('click', () => $('t-lrc-input').click());
-  $('t-lrc-input').addEventListener('change', e => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+  function loadLRC(file) {
     const reader = new FileReader();
     reader.onload = ev => {
       const parsed = parseLRC(ev.target.result);
@@ -117,8 +115,21 @@ export function initTimingTab() {
       stepGuide.markDone(1);
       stepGuide.markDone(2);
     };
-    reader.readAsText(f, 'utf-8');
+    reader.readAsText(file, 'utf-8');
+  }
+
+  $('t-import-lrc-btn').addEventListener('click', () => $('t-lrc-input').click());
+  $('t-lrc-input').addEventListener('change', e => {
+    const f = e.target.files?.[0];
+    if (f) loadLRC(f);
     $('t-lrc-input').value = '';
+  });
+
+  // タブ全体にドラッグ&ドロップ
+  attachFileDrop($('panel-timing'), {
+    onAudio: loadAudio,
+    onLRC: loadLRC,
+    overlay: $('t-drop-overlay'),
   });
 
   $('t-export-lrc-btn').addEventListener('click', () => {

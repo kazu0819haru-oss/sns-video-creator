@@ -20,6 +20,19 @@
 <section class="tab-panel is-active" id="panel-timing">
   <div class="step-bar" id="step-bar-timing"></div>
 
+  <details class="mode-intro" open>
+    <summary>🎵 タイミング設定モード — できること</summary>
+    <div class="mode-intro-body">
+      <p>音源と歌詞から <b>LRC ファイル</b>（時刻つき歌詞）を作成します。一度作っておけば、Creator で動画を作るときに読み込むだけで歌詞同期できます。別の曲のタイミングだけ取りたいときもこのタブで完結。</p>
+      <ol class="mode-steps">
+        <li>音源ファイル（mp3 / wav / m4a）を選択、または <b>このタブにドラッグ&ドロップ</b></li>
+        <li>歌詞テキストを下のエリアに貼り付け</li>
+        <li>「タイミング入力」を押して再生 → 各行の歌い始めで <kbd>Space</kbd>、間奏は <kbd>Enter</kbd>、戻る <kbd>←</kbd></li>
+        <li>「LRC 書き出し」でファイルをダウンロード</li>
+      </ol>
+    </div>
+  </details>
+
   <div class="toolbar">
     <h1 style="font-family:var(--font-display);font-size:18px;letter-spacing:0.06em">Timing Editor</h1>
     <input type="file" id="t-audio-input" accept="audio/*" hidden />
@@ -59,10 +72,32 @@
       <div id="t-lyric-line-list" style="display:flex;flex-direction:column;gap:2px;max-height:200px;overflow-y:auto"></div>
     </div>
   </div>
+
+  <div class="file-drop-overlay" id="t-drop-overlay">
+    <div class="file-drop-content">
+      <div class="file-drop-icon">↓</div>
+      <div class="file-drop-text">音源 (mp3 / wav) または LRC (.lrc / .txt) をドロップ</div>
+    </div>
+  </div>
 </section>
 
 <section class="tab-panel" id="panel-creator">
   <div class="step-bar" id="step-bar-creator"></div>
+
+  <details class="mode-intro" open>
+    <summary>🎬 動画作成モード — できること</summary>
+    <div class="mode-intro-body">
+      <p>音源にビジュアライザーや歌詞・ロゴを重ねて <b>SNSショート動画</b>（webm）を録画します。タイトル・歌詞・ロゴはキャンバス上をドラッグで自由配置、12 種のフォントと 6 種のエフェクトで装飾できます。</p>
+      <ol class="mode-steps">
+        <li>音源ファイル（mp3 / wav / m4a）を選択、または <b>このタブにドラッグ&ドロップ</b></li>
+        <li>歌詞同期したい場合は <b>LRC ファイル（.lrc/.txt）をドロップ</b>（Timing タブで作ったもの）</li>
+        <li>背景スタイル・アスペクト比を選ぶ（9:16 がショート向け）</li>
+        <li>右パネルの「テキスト / 演出 / ロゴ」で装飾を調整</li>
+        <li>キャンバス右上の「✥ 配置編集」でドラッグして位置決め</li>
+        <li>「● 録画」で WebM 書き出し</li>
+      </ol>
+    </div>
+  </details>
 
   <div class="toolbar">
     <h1 style="font-family:var(--font-display);font-size:18px;letter-spacing:0.06em">Creator</h1>
@@ -128,6 +163,13 @@
         <div class="accordion-body" id="c-logo-controls"></div>
       </details>
     </aside>
+  </div>
+
+  <div class="file-drop-overlay" id="c-drop-overlay">
+    <div class="file-drop-content">
+      <div class="file-drop-icon">↓</div>
+      <div class="file-drop-text">音源 (mp3 / wav) または LRC (.lrc / .txt) をドロップ</div>
+    </div>
   </div>
 </section>
 

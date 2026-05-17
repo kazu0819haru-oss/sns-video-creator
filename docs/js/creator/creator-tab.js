@@ -13,6 +13,7 @@ import { drawOverlay } from './overlay.js';
 import { Recorder } from './recorder.js';
 import { Logo } from './logo.js';
 import { DragManager } from './text-positioning.js';
+import { attachFileDrop } from '../shared/file-drop.js';
 
 const EFFECTS = [
   { id: 'none', label: 'なし' },
@@ -89,22 +90,6 @@ export function initCreatorTab() {
   });
 
   const wrap = $('c-canvas-wrap');
-  ['dragenter', 'dragover'].forEach(ev =>
-    wrap.addEventListener(ev, e => {
-      e.preventDefault();
-      if (!state.editMode) wrap.style.outline = '2px solid var(--accent)';
-    })
-  );
-  ['dragleave', 'drop'].forEach(ev =>
-    wrap.addEventListener(ev, e => {
-      e.preventDefault();
-      if (!state.editMode) wrap.style.outline = 'none';
-    })
-  );
-  wrap.addEventListener('drop', e => {
-    const f = e.dataTransfer.files?.[0];
-    if (f && f.type.startsWith('audio/')) loadAudio(f);
-  });
 
   function loadAudio(file) {
     state.trackTitle = file.name.replace(/\.[^.]+$/, '');
@@ -181,18 +166,33 @@ export function initCreatorTab() {
     }
   });
 
-  $('c-import-lrc-btn').addEventListener('click', () => $('c-lrc-input').click());
-  $('c-lrc-input').addEventListener('change', e => {
-    const f = e.target.files?.[0];
-    if (!f) return;
+  function loadLRC(file) {
     const reader = new FileReader();
     reader.onload = ev => {
       const parsed = parseLRC(ev.target.result);
       if (parsed.length === 0) return;
       lyrics.lines = parsed;
     };
-    reader.readAsText(f, 'utf-8');
+    reader.readAsText(file, 'utf-8');
+  }
+
+  $('c-import-lrc-btn').addEventListener('click', () => $('c-lrc-input').click());
+  $('c-lrc-input').addEventListener('change', e => {
+    const f = e.target.files?.[0];
+    if (f) loadLRC(f);
     $('c-lrc-input').value = '';
+  });
+
+  // タブ全体にドラッグ&ドロップ（音源 + LRC + ロゴ画像）
+  attachFileDrop($('panel-creator'), {
+    onAudio: loadAudio,
+    onLRC: loadLRC,
+    onImage: async (file) => {
+      await logo.loadFile(file);
+      // 既存のロゴプレビューを更新する場合は再構築
+      buildLogoSection($('c-logo-controls'), logo);
+    },
+    overlay: $('c-drop-overlay'),
   });
 
   // 既存のツールバートグルを state に同期

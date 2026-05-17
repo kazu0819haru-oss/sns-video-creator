@@ -1,5 +1,9 @@
 import { initTimingTab } from './timing/timing-tab.js';
 import { initCreatorTab } from './creator/creator-tab.js';
+import { installGlobalDropGuard } from './shared/file-drop.js';
+
+// タブ以外にファイルをドロップしてもブラウザが開かないようにガード
+installGlobalDropGuard();
 
 const tabs = document.querySelectorAll('.tab');
 const panels = document.querySelectorAll('.tab-panel');
