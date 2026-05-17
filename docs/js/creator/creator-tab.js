@@ -2,6 +2,7 @@ import { AudioGraph } from '../shared/audio.js';
 import { LyricsData } from '../shared/lyrics-data.js';
 import { parseLRC } from '../shared/lrc.js';
 import { StepGuide } from '../ui/step-guide.js';
+import { FONTS, getFontById } from '../shared/fonts.js';
 import { getStyles, getStyleById } from './visual-styles/registry.js';
 import './visual-styles/red-frame.js';
 import './visual-styles/rainbow-bars.js';
@@ -10,6 +11,17 @@ import './visual-styles/mono-lines.js';
 import { Particles } from './particles.js';
 import { drawOverlay } from './overlay.js';
 import { Recorder } from './recorder.js';
+import { Logo } from './logo.js';
+import { DragManager } from './text-positioning.js';
+
+const EFFECTS = [
+  { id: 'none', label: 'なし' },
+  { id: 'fade', label: 'フェードイン' },
+  { id: 'slide', label: 'スライドアップ' },
+  { id: 'typewriter', label: 'タイプライター' },
+  { id: 'glow', label: 'グロー（音連動）' },
+  { id: 'colorshift', label: 'カラーシフト' },
+];
 
 export function initCreatorTab() {
   const $ = id => document.getElementById(id);
@@ -20,12 +32,23 @@ export function initCreatorTab() {
   const lyrics = new LyricsData();
   const particles = new Particles();
   const recorder = new Recorder();
+  const logo = new Logo();
+  const dragMgr = new DragManager(canvas);
 
-  let isPlaying = false;
-  let isSeeking = false;
-  let visualStyle = 'red-frame';
-  let trackTitle = '';
-  let lastBass = 0;
+  // 状態
+  const state = {
+    visualStyle: 'red-frame',
+    isPlaying: false,
+    isSeeking: false,
+    trackTitle: '',
+    lastBass: 0,
+    lastLineIdx: -1,
+    lineStartTime: 0,
+    editMode: false,
+    title:  { text: '', font: getFontById('shippori-mincho').family, color: '#ffffff', sizeScale: 1.0, shadow: 14, background: 'none', x: 0.5, y: 0.065, visible: true },
+    band:   { text: '', font: getFontById('shippori-mincho').family, color: '#cccccc', sizeScale: 0.7, shadow: 12, background: 'none', x: 0.5, y: 0.105, visible: true },
+    lyrics: { enabled: true, font: getFontById('shippori-mincho').family, color: '#ffffff', sizeScale: 1.0, shadow: 18, background: 'none', x: 0.5, y: 0.5, effect: 'none' },
+  };
 
   const stepGuide = new StepGuide($('step-bar-creator'), [
     { id: 'audio', label: '音源を選択' },
@@ -33,7 +56,8 @@ export function initCreatorTab() {
     { id: 'record', label: '録画' },
   ]);
 
-  // スタイルセレクトを動的生成
+  // ============ 既存のセットアップ（音源・スタイル・アスペクト・再生・録画） ============
+
   const styleSel = $('c-style-select');
   getStyles().forEach(s => {
     const opt = document.createElement('option');
@@ -43,11 +67,10 @@ export function initCreatorTab() {
     styleSel.appendChild(opt);
   });
   styleSel.addEventListener('change', e => {
-    visualStyle = e.target.value;
+    state.visualStyle = e.target.value;
     stepGuide.markDone(1);
   });
 
-  // アスペクト比
   const ASPECTS = { '9:16': [1080, 1920], '1:1': [1080, 1080], '16:9': [1920, 1080] };
   function applyAspect(name) {
     $('c-canvas-wrap').setAttribute('data-aspect', name);
@@ -65,18 +88,17 @@ export function initCreatorTab() {
     if (f) loadAudio(f);
   });
 
-  // Drag & drop
   const wrap = $('c-canvas-wrap');
   ['dragenter', 'dragover'].forEach(ev =>
     wrap.addEventListener(ev, e => {
       e.preventDefault();
-      wrap.style.outline = '2px solid var(--accent)';
+      if (!state.editMode) wrap.style.outline = '2px solid var(--accent)';
     })
   );
   ['dragleave', 'drop'].forEach(ev =>
     wrap.addEventListener(ev, e => {
       e.preventDefault();
-      wrap.style.outline = 'none';
+      if (!state.editMode) wrap.style.outline = 'none';
     })
   );
   wrap.addEventListener('drop', e => {
@@ -85,7 +107,7 @@ export function initCreatorTab() {
   });
 
   function loadAudio(file) {
-    trackTitle = file.name.replace(/\.[^.]+$/, '');
+    state.trackTitle = file.name.replace(/\.[^.]+$/, '');
     const audio = audioGraph.loadFile(file);
     audio.addEventListener('loadedmetadata', () => {
       const dur = audio.duration;
@@ -101,14 +123,14 @@ export function initCreatorTab() {
       stepGuide.markDone(0);
     });
     audio.addEventListener('timeupdate', () => {
-      if (isSeeking) return;
+      if (state.isSeeking) return;
       $('c-seek-bar').value = audio.currentTime;
       const m = Math.floor(audio.currentTime / 60);
       const s = String(Math.floor(audio.currentTime % 60)).padStart(2, '0');
       $('c-cur-time').textContent = `${m}:${s}`;
     });
     audio.addEventListener('ended', () => {
-      isPlaying = false;
+      state.isPlaying = false;
       $('c-play-btn').textContent = '▶ 再生';
       if (recorder.isRecording) recorder.stop();
     });
@@ -118,21 +140,21 @@ export function initCreatorTab() {
   $('c-play-btn').addEventListener('click', async () => {
     if (!audioGraph.audio) return;
     await audioGraph.resume();
-    if (isPlaying) {
+    if (state.isPlaying) {
       audioGraph.audio.pause();
-      isPlaying = false;
+      state.isPlaying = false;
       $('c-play-btn').textContent = '▶ 再生';
     } else {
       audioGraph.audio.play();
-      isPlaying = true;
+      state.isPlaying = true;
       $('c-play-btn').textContent = '⏸ 一時停止';
     }
   });
 
-  $('c-seek-bar').addEventListener('mousedown', () => { isSeeking = true; });
+  $('c-seek-bar').addEventListener('mousedown', () => { state.isSeeking = true; });
   $('c-seek-bar').addEventListener('change', () => {
     if (audioGraph.audio) audioGraph.audio.currentTime = $('c-seek-bar').value;
-    isSeeking = false;
+    state.isSeeking = false;
   });
 
   $('c-rec-btn').addEventListener('click', () => {
@@ -142,7 +164,7 @@ export function initCreatorTab() {
       $('c-rec-btn').textContent = '● 録画';
       $('c-rec-btn').classList.remove('is-recording');
     } else {
-      recorder.start(canvas, audioGraph.destNode.stream, `${trackTitle}-visualizer.webm`);
+      recorder.start(canvas, audioGraph.destNode.stream, `${state.trackTitle}-visualizer.webm`);
       recorder.onStop = () => {
         $('c-rec-btn').textContent = '● 録画';
         $('c-rec-btn').classList.remove('is-recording');
@@ -151,9 +173,9 @@ export function initCreatorTab() {
       $('c-rec-btn').textContent = '■ 停止';
       $('c-rec-btn').classList.add('is-recording');
       audioGraph.resume();
-      if (!isPlaying) {
+      if (!state.isPlaying) {
         audioGraph.audio.play();
-        isPlaying = true;
+        state.isPlaying = true;
         $('c-play-btn').textContent = '⏸ 一時停止';
       }
     }
@@ -173,7 +195,71 @@ export function initCreatorTab() {
     $('c-lrc-input').value = '';
   });
 
-  // 描画ループ
+  // 既存のツールバートグルを state に同期
+  function syncFromToolbar() {
+    state.title.text = $('c-song-title').value;
+    state.band.text = $('c-band-name').value;
+    state.lyrics.enabled = $('c-lyrics-toggle').checked;
+  }
+  $('c-song-title').addEventListener('input', syncFromToolbar);
+  $('c-band-name').addEventListener('input', syncFromToolbar);
+  $('c-lyrics-toggle').addEventListener('change', syncFromToolbar);
+
+  // ============ Properties Panel UI 構築 ============
+  buildTextSection($('c-text-controls'), state);
+  buildEffectsSection($('c-effects-controls'), state);
+  buildLogoSection($('c-logo-controls'), logo);
+
+  // ============ 編集モード（ドラッグ配置） ============
+  const editBtn = $('c-edit-mode-btn');
+  editBtn.addEventListener('click', () => {
+    state.editMode = !state.editMode;
+    editBtn.classList.toggle('is-active', state.editMode);
+    wrap.classList.toggle('is-edit-mode', state.editMode);
+    dragMgr.setEnabled(state.editMode);
+  });
+
+  // ドラッグ対象を登録
+  dragMgr.addItem({
+    id: 'title',
+    getBounds: (W, H) => {
+      if (!state.title.visible || !state.title.text) return null;
+      const fs = Math.round(H * 0.026 * state.title.sizeScale);
+      return { cx: W * state.title.x, cy: H * state.title.y, w: Math.max(120, fs * state.title.text.length * 0.7), h: fs * 1.6 };
+    },
+    setPos: (x, y) => { state.title.x = x; state.title.y = y; },
+  });
+  dragMgr.addItem({
+    id: 'band',
+    getBounds: (W, H) => {
+      if (!state.band.visible || !state.band.text) return null;
+      const fs = Math.round(H * 0.026 * state.band.sizeScale);
+      return { cx: W * state.band.x, cy: H * state.band.y, w: Math.max(120, fs * state.band.text.length * 0.7), h: fs * 1.6 };
+    },
+    setPos: (x, y) => { state.band.x = x; state.band.y = y; },
+  });
+  dragMgr.addItem({
+    id: 'lyrics',
+    getBounds: (W, H) => {
+      const idx = lyrics.getCurrentIndex(audioGraph.audio?.currentTime || 0);
+      const text = idx >= 0 ? lyrics.all[idx]?.text : '';
+      if (!state.lyrics.enabled || !text) return null;
+      const fs = Math.round(H * 0.026 * state.lyrics.sizeScale);
+      return { cx: W * state.lyrics.x, cy: H * state.lyrics.y, w: Math.max(180, fs * text.length * 0.7), h: fs * 1.8 };
+    },
+    setPos: (x, y) => { state.lyrics.x = x; state.lyrics.y = y; },
+  });
+  dragMgr.addItem({
+    id: 'logo',
+    getBounds: (W, H) => {
+      const b = logo.getBounds(W, H);
+      if (!b || !logo.visible) return null;
+      return { cx: W * logo.x, cy: H * logo.y, w: b.w, h: b.h };
+    },
+    setPos: (x, y) => { logo.x = x; logo.y = y; },
+  });
+
+  // ============ 描画ループ ============
   function render() {
     const W = canvas.width;
     const H = canvas.height;
@@ -188,29 +274,354 @@ export function initCreatorTab() {
       time = audioGraph.getTimeData();
       bass = audioGraph.getBass();
     }
-    lastBass = lastBass * 0.85 + bass * 0.15;
+    state.lastBass = state.lastBass * 0.85 + bass * 0.15;
 
     if ($('c-particles-toggle').checked) {
-      particles.draw(ctx, W, H, lastBass);
+      particles.draw(ctx, W, H, state.lastBass);
     }
 
-    const style = getStyleById(visualStyle);
+    const style = getStyleById(state.visualStyle);
     if (style) {
-      style.drawFn(ctx, W, H, freq, time, lastBass, { showJacket: false });
+      style.drawFn(ctx, W, H, freq, time, state.lastBass, { showJacket: false });
+    }
+
+    // 歌詞インデックス・行開始時刻の追跡
+    const ct = audioGraph.audio?.currentTime || 0;
+    const idx = lyrics.getCurrentIndex(ct);
+    if (idx !== state.lastLineIdx) {
+      state.lastLineIdx = idx;
+      state.lineStartTime = idx >= 0 ? (lyrics.all[idx]?.time ?? ct) : ct;
     }
 
     drawOverlay(ctx, W, H, {
-      songTitle: $('c-song-title').value,
-      bandName: $('c-band-name').value,
+      title: state.title,
+      band: state.band,
+      lyrics: {
+        ...state.lyrics,
+        currentLineIdx: idx,
+        lineStartTime: state.lineStartTime,
+      },
       lyricsData: lyrics,
-      currentTime: audioGraph.audio?.currentTime || 0,
-      showLyrics: $('c-lyrics-toggle').checked,
-      lyricsY: 0.5,
-      showTrackTitle: true,
-      trackTitle,
+      currentTime: ct,
+      bass: state.lastBass,
     });
+
+    logo.draw(ctx, W, H);
+
+    dragMgr.drawHandles(ctx, W, H);
 
     requestAnimationFrame(render);
   }
   render();
+}
+
+// ============ Properties Panel ビルダー関数 ============
+
+function buildTextSection(container, state) {
+  container.innerHTML = '';
+  container.appendChild(makeSubsection('タイトル', state.title));
+  container.appendChild(makeSubsection('バンド名', state.band));
+  container.appendChild(makeSubsection('歌詞', state.lyrics, true));
+}
+
+function makeSubsection(title, target, isLyrics = false) {
+  const wrap = document.createElement('div');
+  wrap.className = 'subsection';
+
+  const t = document.createElement('div');
+  t.className = 'subsection-title';
+  t.textContent = title;
+  wrap.appendChild(t);
+
+  // フォント
+  wrap.appendChild(makeFontField(target));
+  // カラー
+  wrap.appendChild(makeColorField(target));
+  // サイズ
+  wrap.appendChild(makeRangeField('サイズ', target, 'sizeScale', 0.5, 3.0, 0.05, v => v.toFixed(2) + 'x'));
+  // シャドウ
+  wrap.appendChild(makeRangeField('シャドウ', target, 'shadow', 0, 40, 1, v => v + 'px'));
+  // 背景
+  wrap.appendChild(makeBackgroundField(target));
+
+  return wrap;
+}
+
+function makeFontField(target) {
+  const row = document.createElement('div');
+  row.className = 'field';
+
+  const label = document.createElement('div');
+  label.className = 'field-label';
+  label.textContent = 'フォント';
+  row.appendChild(label);
+
+  const select = document.createElement('select');
+  select.className = 'font-select';
+  FONTS.forEach(f => {
+    const opt = document.createElement('option');
+    opt.value = f.id;
+    opt.textContent = `${f.label} — ${f.tag}`;
+    opt.style.fontFamily = f.family;
+    if (target.font === f.family) opt.selected = true;
+    select.appendChild(opt);
+  });
+  row.appendChild(select);
+
+  const preview = document.createElement('div');
+  preview.className = 'font-preview';
+  const updatePreview = () => {
+    const f = getFontById(select.value);
+    preview.style.fontFamily = f.family;
+    preview.style.fontWeight = f.weight;
+    preview.textContent = target.text || '迷彩 NiSSHëL';
+  };
+  select.addEventListener('change', () => {
+    const f = getFontById(select.value);
+    target.font = f.family;
+    updatePreview();
+  });
+  updatePreview();
+  row.appendChild(preview);
+
+  return row;
+}
+
+function makeColorField(target) {
+  const row = document.createElement('div');
+  row.className = 'field-row';
+
+  const label = document.createElement('div');
+  label.className = 'field-label';
+  label.textContent = 'カラー';
+
+  const input = document.createElement('input');
+  input.type = 'color';
+  input.value = target.color;
+  input.addEventListener('input', () => { target.color = input.value; });
+
+  row.appendChild(label);
+  row.appendChild(input);
+  return row;
+}
+
+function makeRangeField(labelText, target, key, min, max, step, fmt) {
+  const row = document.createElement('div');
+  row.className = 'field-row';
+
+  const label = document.createElement('div');
+  label.className = 'field-label';
+  label.textContent = labelText;
+  row.appendChild(label);
+
+  const rangeWrap = document.createElement('div');
+  rangeWrap.className = 'range-row';
+  rangeWrap.style.flex = '1';
+
+  const input = document.createElement('input');
+  input.type = 'range';
+  input.min = min;
+  input.max = max;
+  input.step = step;
+  input.value = target[key];
+  input.className = 'seek-bar';
+
+  const valueEl = document.createElement('span');
+  valueEl.className = 'value';
+  valueEl.textContent = fmt(target[key]);
+
+  input.addEventListener('input', () => {
+    const v = parseFloat(input.value);
+    target[key] = v;
+    valueEl.textContent = fmt(v);
+  });
+
+  rangeWrap.appendChild(input);
+  rangeWrap.appendChild(valueEl);
+  row.appendChild(rangeWrap);
+
+  return row;
+}
+
+function makeBackgroundField(target) {
+  const row = document.createElement('div');
+  row.className = 'field-row';
+
+  const label = document.createElement('div');
+  label.className = 'field-label';
+  label.textContent = '背景';
+  row.appendChild(label);
+
+  const select = document.createElement('select');
+  select.className = 'select';
+  select.style.flex = '1';
+  [
+    ['none', 'なし'],
+    ['bar', '半透明バー'],
+    ['blur', 'ぼかしブロック'],
+  ].forEach(([v, l]) => {
+    const opt = document.createElement('option');
+    opt.value = v;
+    opt.textContent = l;
+    if (target.background === v) opt.selected = true;
+    select.appendChild(opt);
+  });
+  select.addEventListener('change', () => { target.background = select.value; });
+  row.appendChild(select);
+
+  return row;
+}
+
+function buildEffectsSection(container, state) {
+  container.innerHTML = '';
+
+  const row = document.createElement('div');
+  row.className = 'field';
+
+  const label = document.createElement('div');
+  label.className = 'field-label';
+  label.textContent = '歌詞エフェクト';
+  row.appendChild(label);
+
+  const select = document.createElement('select');
+  select.className = 'select';
+  EFFECTS.forEach(e => {
+    const opt = document.createElement('option');
+    opt.value = e.id;
+    opt.textContent = e.label;
+    if (state.lyrics.effect === e.id) opt.selected = true;
+    select.appendChild(opt);
+  });
+  select.addEventListener('change', () => { state.lyrics.effect = select.value; });
+  row.appendChild(select);
+
+  const hint = document.createElement('div');
+  hint.className = 'field-label';
+  hint.style.fontSize = '10px';
+  hint.style.lineHeight = '1.6';
+  hint.style.marginTop = '4px';
+  hint.textContent = 'グローは音の強さ、カラーシフトは時間で色が変化します。';
+  row.appendChild(hint);
+
+  container.appendChild(row);
+}
+
+function buildLogoSection(container, logo) {
+  container.innerHTML = '';
+
+  // アップロード
+  const upRow = document.createElement('div');
+  upRow.className = 'field';
+  const upLabel = document.createElement('div');
+  upLabel.className = 'field-label';
+  upLabel.textContent = 'ロゴ画像 (PNG / SVG / JPG)';
+  upRow.appendChild(upLabel);
+
+  const fileInput = document.createElement('input');
+  fileInput.type = 'file';
+  fileInput.accept = 'image/png,image/svg+xml,image/jpeg';
+  fileInput.style.fontSize = '12px';
+  fileInput.style.color = 'var(--fg-muted)';
+
+  const preview = document.createElement('div');
+  preview.className = 'logo-preview';
+  const emptyText = document.createElement('span');
+  emptyText.className = 'empty';
+  emptyText.textContent = '未読込';
+  preview.appendChild(emptyText);
+
+  fileInput.addEventListener('change', async e => {
+    const f = e.target.files?.[0];
+    if (!f) return;
+    await logo.loadFile(f);
+    preview.innerHTML = '';
+    const imgEl = document.createElement('img');
+    imgEl.src = logo.img.src;
+    preview.appendChild(imgEl);
+  });
+
+  upRow.appendChild(fileInput);
+  upRow.appendChild(preview);
+  container.appendChild(upRow);
+
+  // 表示トグル
+  const visRow = document.createElement('div');
+  visRow.className = 'field-row';
+  const visLabel = document.createElement('div');
+  visLabel.className = 'field-label';
+  visLabel.textContent = '表示';
+  visRow.appendChild(visLabel);
+
+  const toggle = document.createElement('label');
+  toggle.className = 'toggle-switch';
+  toggle.innerHTML = `<input type="checkbox" ${logo.visible ? 'checked' : ''}><span class="toggle-slider"></span>`;
+  toggle.querySelector('input').addEventListener('change', e => { logo.visible = e.target.checked; });
+  visRow.appendChild(toggle);
+  container.appendChild(visRow);
+
+  // サイズ
+  const sizeRow = document.createElement('div');
+  sizeRow.className = 'field-row';
+  const sizeLabel = document.createElement('div');
+  sizeLabel.className = 'field-label';
+  sizeLabel.textContent = 'サイズ';
+  sizeRow.appendChild(sizeLabel);
+  const sizeWrap = document.createElement('div');
+  sizeWrap.className = 'range-row';
+  sizeWrap.style.flex = '1';
+  const sizeInput = document.createElement('input');
+  sizeInput.type = 'range';
+  sizeInput.min = 0.05;
+  sizeInput.max = 0.5;
+  sizeInput.step = 0.01;
+  sizeInput.value = logo.widthScale;
+  sizeInput.className = 'seek-bar';
+  const sizeVal = document.createElement('span');
+  sizeVal.className = 'value';
+  sizeVal.textContent = (logo.widthScale * 100).toFixed(0) + '%';
+  sizeInput.addEventListener('input', () => {
+    logo.widthScale = parseFloat(sizeInput.value);
+    sizeVal.textContent = (logo.widthScale * 100).toFixed(0) + '%';
+  });
+  sizeWrap.appendChild(sizeInput);
+  sizeWrap.appendChild(sizeVal);
+  sizeRow.appendChild(sizeWrap);
+  container.appendChild(sizeRow);
+
+  // 不透明度
+  const opRow = document.createElement('div');
+  opRow.className = 'field-row';
+  const opLabel = document.createElement('div');
+  opLabel.className = 'field-label';
+  opLabel.textContent = '不透明度';
+  opRow.appendChild(opLabel);
+  const opWrap = document.createElement('div');
+  opWrap.className = 'range-row';
+  opWrap.style.flex = '1';
+  const opInput = document.createElement('input');
+  opInput.type = 'range';
+  opInput.min = 0;
+  opInput.max = 1;
+  opInput.step = 0.05;
+  opInput.value = logo.opacity;
+  opInput.className = 'seek-bar';
+  const opVal = document.createElement('span');
+  opVal.className = 'value';
+  opVal.textContent = (logo.opacity * 100).toFixed(0) + '%';
+  opInput.addEventListener('input', () => {
+    logo.opacity = parseFloat(opInput.value);
+    opVal.textContent = (logo.opacity * 100).toFixed(0) + '%';
+  });
+  opWrap.appendChild(opInput);
+  opWrap.appendChild(opVal);
+  opRow.appendChild(opWrap);
+  container.appendChild(opRow);
+
+  const hint = document.createElement('div');
+  hint.className = 'field-label';
+  hint.style.fontSize = '10px';
+  hint.style.lineHeight = '1.6';
+  hint.style.marginTop = '4px';
+  hint.textContent = '位置はキャンバス右上の「✥ 配置編集」をONにしてドラッグで決定。';
+  container.appendChild(hint);
 }
