@@ -116,6 +116,9 @@
       <option value="1:1">1:1</option>
       <option value="16:9">16:9</option>
     </select>
+    <select class="select" id="c-preset-select" title="プラットフォームプリセット">
+      <option value="">プラットフォーム…</option>
+    </select>
     <select class="select" id="c-bg-mode-select" title="背景モード">
       <option value="visualizer" selected>背景: ビジュアライザー</option>
       <option value="video">背景: 動画</option>
@@ -150,6 +153,12 @@
           <div class="pill">音源をドロップ / 選択</div>
         </div>
         <button class="btn edit-mode-btn" id="c-edit-mode-btn" title="テキスト・ロゴをドラッグで移動">✥ 配置編集</button>
+        <div class="safe-zones" id="c-safe-zones" hidden>
+          <div class="safe-zone safe-zone--top"></div>
+          <div class="safe-zone safe-zone--bottom"></div>
+          <div class="safe-zone safe-zone--left"></div>
+          <div class="safe-zone safe-zone--right"></div>
+        </div>
       </div>
     </div>
 
@@ -170,6 +179,19 @@
       <details class="accordion">
         <summary>🎯 ロゴ</summary>
         <div class="accordion-body" id="c-logo-controls"></div>
+      </details>
+
+      <!-- SNS section -->
+      <details class="accordion">
+        <summary>📱 SNS最適化</summary>
+        <div class="accordion-body" id="c-sns-controls"></div>
+      </details>
+
+      <details class="accordion">
+        <summary>📲 スマホプレビュー</summary>
+        <div class="accordion-body" style="padding:8px">
+          <canvas id="c-phone-canvas" width="240" height="427" style="width:100%;border-radius:18px;background:#000;border:6px solid #1a1a1a;box-shadow:0 4px 20px rgba(0,0,0,0.6)"></canvas>
+        </div>
       </details>
     </aside>
 
