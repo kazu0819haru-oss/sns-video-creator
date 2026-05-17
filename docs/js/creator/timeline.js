@@ -228,12 +228,16 @@ export class Timeline {
 
     const duration = clip.duration;
 
+    // バー幅は clipMin/clipMax 範囲を表す（カット後は範囲が狭まる）
+    // フィルとハンドルはバー内での相対位置で計算
     const updateFill = () => {
       const w = bar.clientWidth || 1;
-      const s = clip.trimStart;
-      const e = clip.trimEnd;
-      const left = (s / duration) * w;
-      const right = (e / duration) * w;
+      const min = clip.clipMin ?? 0;
+      const max = clip.clipMax ?? duration;
+      const range = max - min;
+      if (range <= 0) return;
+      const left = ((clip.trimStart - min) / range) * w;
+      const right = ((clip.trimEnd - min) / range) * w;
       fill.style.left = `${left}px`;
       fill.style.width = `${Math.max(0, right - left)}px`;
       leftH.style.left = `${left}px`;
@@ -251,9 +255,10 @@ export class Timeline {
         const onMove = e => {
           const rect = bar.getBoundingClientRect();
           const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
-          const t = ratio * duration;
           const min = clip.clipMin ?? 0;
           const max = clip.clipMax ?? duration;
+          const range = max - min;
+          const t = min + ratio * range;
           if (isLeft) {
             clip.trimStart = Math.max(min, Math.min(t, clip.trimEnd - 0.05));
           } else {
