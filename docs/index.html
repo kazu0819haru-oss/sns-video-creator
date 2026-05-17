@@ -116,7 +116,12 @@
       <option value="1:1">1:1</option>
       <option value="16:9">16:9</option>
     </select>
+    <select class="select" id="c-bg-mode-select" title="背景モード">
+      <option value="visualizer" selected>背景: ビジュアライザー</option>
+      <option value="video">背景: 動画</option>
+    </select>
     <select class="select" id="c-style-select"></select>
+    <input type="file" id="c-video-input" accept="video/*" hidden />
     <label style="display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:var(--radius-pill);border:1px solid var(--border);background:var(--bg-2);font-size:12px;cursor:pointer">
       <input type="checkbox" id="c-particles-toggle" checked style="accent-color:var(--accent)" /> 粒子
     </label>
@@ -167,6 +172,14 @@
         <div class="accordion-body" id="c-logo-controls"></div>
       </details>
     </aside>
+
+    <div class="timeline-panel" id="c-timeline-panel" hidden>
+      <div class="timeline-panel-header">
+        <h3>タイムライン</h3>
+        <span class="meta" id="c-tl-hint">動画クリップを追加して並び順とトリムを設定</span>
+      </div>
+      <div class="timeline-body" id="c-timeline-body"></div>
+    </div>
   </div>
 
   <div class="file-drop-overlay" id="c-drop-overlay">
