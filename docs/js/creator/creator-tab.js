@@ -19,6 +19,9 @@ import { getLrcHistory, addToLrcHistory, clearLrcHistory } from '../shared/lrc-h
 import { VideoClips } from './video-clips.js';
 import { AudioTrim } from './audio-trim.js';
 import { Timeline } from './timeline.js';
+import { PRESETS, getPresetById } from './platform-presets.js';
+import { IntroOutro } from './intro-outro.js';
+import { PhonePreview } from './phone-preview.js';
 
 const EFFECTS = [
   { id: 'none', label: 'なし' },
@@ -44,6 +47,9 @@ export function initCreatorTab() {
   const audioTrim = new AudioTrim();
   let backgroundMode = 'visualizer'; // 'visualizer' | 'video'
   let timeline = null;
+  const introOutro = new IntroOutro();
+  let phonePreview = null;
+  let activePresetId = null;
 
   // 状態
   const state = {
@@ -67,6 +73,41 @@ export function initCreatorTab() {
   ]);
 
   // ============ 既存のセットアップ（音源・スタイル・アスペクト・再生・録画） ============
+
+  // プラットフォームプリセット
+  const presetSel = $('c-preset-select');
+  PRESETS.forEach(p => {
+    const opt = document.createElement('option');
+    opt.value = p.id;
+    opt.textContent = `${p.icon} ${p.label}`;
+    presetSel.appendChild(opt);
+  });
+  presetSel.addEventListener('change', () => {
+    const id = presetSel.value;
+    activePresetId = id || null;
+    const preset = getPresetById(id);
+    if (preset) {
+      $('c-aspect-select').value = preset.aspect;
+      $('c-aspect-select').dispatchEvent(new Event('change'));
+      applySafeZones(preset.safeZones);
+    } else {
+      applySafeZones(null);
+    }
+    if (phonePreview) phonePreview.setPreset(id);
+  });
+
+  function applySafeZones(zones) {
+    const cont = $('c-safe-zones');
+    if (!zones) {
+      cont.hidden = true;
+      return;
+    }
+    cont.hidden = false;
+    cont.querySelector('.safe-zone--top').style.height = `${zones.top || 0}%`;
+    cont.querySelector('.safe-zone--bottom').style.height = `${zones.bottom || 0}%`;
+    cont.querySelector('.safe-zone--left').style.width = `${zones.left || 0}%`;
+    cont.querySelector('.safe-zone--right').style.width = `${zones.right || 0}%`;
+  }
 
   // 背景モード切替
   const bgModeSel = $('c-bg-mode-select');
@@ -312,6 +353,7 @@ export function initCreatorTab() {
   buildTextSection($('c-text-controls'), state);
   buildEffectsSection($('c-effects-controls'), state);
   buildLogoSection($('c-logo-controls'), logo);
+  buildSnsSection($('c-sns-controls'), introOutro, () => state.trackTitle);
 
   timeline = new Timeline($('c-timeline-body'), {
     audioTrim,
@@ -320,6 +362,11 @@ export function initCreatorTab() {
     onSeek: t => { if (audioGraph.audio) audioGraph.audio.currentTime = t; },
     getCurrentTime: () => audioGraph.audio?.currentTime || 0,
   });
+
+  const phoneCanvas = document.getElementById('c-phone-canvas');
+  if (phoneCanvas) {
+    phonePreview = new PhonePreview(phoneCanvas, canvas);
+  }
 
   $('c-video-input').addEventListener('change', async e => {
     const f = e.target.files?.[0];
@@ -438,7 +485,18 @@ export function initCreatorTab() {
 
     logo.draw(ctx, W, H);
 
+    // intro/outro オーバーレイ（録画に含める）
+    const ct = audioGraph.audio?.currentTime || 0;
+    const eff = audioTrim.effectiveTime(ct);
+    const totalEff = audioTrim.effectiveDuration();
+    const overlay = introOutro.getActiveOverlay(eff, totalEff);
+    if (overlay) {
+      introOutro.draw(ctx, W, H, overlay).catch(e => console.error(e));
+    }
+
     dragMgr.drawHandles(ctx, W, H);
+
+    if (phonePreview) phonePreview.draw();
 
     requestAnimationFrame(render);
   }
@@ -754,4 +812,97 @@ function buildLogoSection(container, logo) {
   hint.style.marginTop = '4px';
   hint.textContent = '位置はキャンバス右上の「✥ 配置編集」をONにしてドラッグで決定。';
   container.appendChild(hint);
+}
+
+function buildSnsSection(container, introOutro, getTrackTitle) {
+  container.innerHTML = '';
+
+  const hint = document.createElement('div');
+  hint.className = 'sns-panel-hint';
+  hint.textContent = 'イントロ・アウトロカードは録画に含まれます。プラットフォームプリセットを選ぶと安全域がプレビュー表示されます（録画には入りません）。';
+  container.appendChild(hint);
+
+  container.appendChild(makeSnsSubsection('イントロカード', introOutro.intro, [
+    { key: 'enabled', type: 'toggle', label: '表示' },
+    { key: 'duration', type: 'range', label: '秒数', min: 1, max: 6, step: 0.5, fmt: v => v + 's' },
+    { key: 'title', type: 'text', label: 'タイトル', placeholder: '曲名（空なら現在の曲名）' },
+    { key: 'subtitle', type: 'text', label: 'サブ', placeholder: 'バンド名や説明' },
+  ]));
+
+  container.appendChild(makeSnsSubsection('アウトロカード', introOutro.outro, [
+    { key: 'enabled', type: 'toggle', label: '表示' },
+    { key: 'duration', type: 'range', label: '秒数', min: 1, max: 6, step: 0.5, fmt: v => v + 's' },
+    { key: 'title', type: 'text', label: 'タイトル', placeholder: 'Follow / Listen' },
+    { key: 'subtitle', type: 'text', label: 'サブ', placeholder: '@your_handle' },
+    { key: 'qrUrl', type: 'text', label: 'QR URL', placeholder: 'https://...' },
+  ]));
+}
+
+function makeSnsSubsection(title, target, fields) {
+  const wrap = document.createElement('div');
+  wrap.className = 'subsection';
+  const t = document.createElement('div');
+  t.className = 'subsection-title';
+  t.textContent = title;
+  wrap.appendChild(t);
+
+  fields.forEach(f => {
+    if (f.type === 'toggle') {
+      const row = document.createElement('div');
+      row.className = 'field-row';
+      const lab = document.createElement('div');
+      lab.className = 'field-label';
+      lab.textContent = f.label;
+      row.appendChild(lab);
+      const sw = document.createElement('label');
+      sw.className = 'toggle-switch';
+      sw.innerHTML = `<input type="checkbox" ${target[f.key] ? 'checked' : ''}><span class="toggle-slider"></span>`;
+      sw.querySelector('input').addEventListener('change', e => { target[f.key] = e.target.checked; });
+      row.appendChild(sw);
+      wrap.appendChild(row);
+    } else if (f.type === 'range') {
+      const row = document.createElement('div');
+      row.className = 'field-row';
+      const lab = document.createElement('div');
+      lab.className = 'field-label';
+      lab.textContent = f.label;
+      row.appendChild(lab);
+      const rw = document.createElement('div');
+      rw.className = 'range-row';
+      rw.style.flex = '1';
+      const inp = document.createElement('input');
+      inp.type = 'range';
+      inp.min = f.min; inp.max = f.max; inp.step = f.step;
+      inp.value = target[f.key];
+      inp.className = 'seek-bar';
+      const v = document.createElement('span');
+      v.className = 'value';
+      v.textContent = f.fmt(target[f.key]);
+      inp.addEventListener('input', () => {
+        target[f.key] = parseFloat(inp.value);
+        v.textContent = f.fmt(target[f.key]);
+      });
+      rw.appendChild(inp); rw.appendChild(v);
+      row.appendChild(rw);
+      wrap.appendChild(row);
+    } else if (f.type === 'text') {
+      const row = document.createElement('div');
+      row.className = 'field';
+      const lab = document.createElement('div');
+      lab.className = 'field-label';
+      lab.textContent = f.label;
+      row.appendChild(lab);
+      const inp = document.createElement('input');
+      inp.type = 'text';
+      inp.className = 'text-input';
+      inp.placeholder = f.placeholder || '';
+      inp.value = target[f.key] || '';
+      inp.style.width = '100%';
+      inp.addEventListener('input', () => { target[f.key] = inp.value; });
+      row.appendChild(inp);
+      wrap.appendChild(row);
+    }
+  });
+
+  return wrap;
 }
