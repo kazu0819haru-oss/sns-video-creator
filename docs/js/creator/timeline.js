@@ -161,7 +161,8 @@ export class Timeline {
       const trimDur = clip.trimEnd - clip.trimStart;
       const bar = document.createElement('div');
       bar.className = 'tl-bar tl-bar--video';
-      bar.style.width = `${Math.max(60, trimDur * scale)}px`;
+      // 時間軸と完全一致させるため最小幅を撤廃（短いクリップは見にくいが正確）
+      bar.style.width = `${Math.max(4, trimDur * scale)}px`;
       bar.title = clip.name;
 
       const fill = document.createElement('div');

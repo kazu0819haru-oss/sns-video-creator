@@ -976,3 +976,14 @@ body {
 .accordion-body::-webkit-scrollbar-track { background: transparent; }
 .accordion-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 3px; }
 .accordion-body::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.3); }
+
+/* ============ Timeline Axis Alignment Fix ============ */
+/* flex gap が動画クリップの位置を時間軸からズラしていたので 0 に。
+   音源バーと動画クリップが完全に同じ x 座標で揃う。 */
+.tl-track {
+  gap: 0 !important;
+}
+/* 追加ボタンだけ視覚的に少し離す（タイムライン外の UI 要素なので） */
+.tl-add-btn {
+  margin-left: 10px;
+}
