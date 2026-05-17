@@ -223,8 +223,15 @@ export function initCreatorTab() {
       $('c-rec-btn').textContent = '● 録画';
       $('c-rec-btn').classList.remove('is-recording');
     } else {
-      recorder.onStop = async (blob) => {
-        const filename = `${state.trackTitle || 'visualizer'}-${formatStamp()}.webm`;
+      recorder.onStop = async (blob, format) => {
+        if (!blob) {
+          $('c-rec-btn').textContent = '● 録画';
+          $('c-rec-btn').classList.remove('is-recording');
+          $('c-meta').textContent = '録画失敗';
+          return;
+        }
+        const ext = format || 'webm';
+        const filename = `${state.trackTitle || 'visualizer'}-${formatStamp()}.${ext}`;
         const result = await saveBlob(blob, filename);
         $('c-rec-btn').textContent = '● 録画';
         $('c-rec-btn').classList.remove('is-recording');
