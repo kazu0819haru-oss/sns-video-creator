@@ -21,6 +21,12 @@ export class IntroOutro {
       duration: 3,
       title: '',
       subtitle: '',
+      titleFont: '"Anton", "Shippori Mincho B1", sans-serif',
+      titleColor: '#ffffff',
+      titleSize: 1.0,
+      subtitleFont: '"Shippori Mincho B1", serif',
+      subtitleColor: '#cccccc',
+      subtitleSize: 1.0,
       fadeOut: 0.6,
     };
     this.outro = {
@@ -29,6 +35,12 @@ export class IntroOutro {
       title: '',
       subtitle: '',
       qrUrl: '',
+      titleFont: '"Anton", "Shippori Mincho B1", sans-serif',
+      titleColor: '#ffffff',
+      titleSize: 1.0,
+      subtitleFont: '"Shippori Mincho B1", serif',
+      subtitleColor: '#cccccc',
+      subtitleSize: 1.0,
       fadeIn: 0.6,
     };
     this._qrCache = { url: '', dataUrl: '' };
@@ -81,9 +93,9 @@ export class IntroOutro {
     ctx.fillRect(0, 0, W, H);
 
     if (d.title) {
-      const fs = Math.round(H * 0.06);
-      ctx.font = `700 ${fs}px "Anton", "Shippori Mincho B1", sans-serif`;
-      ctx.fillStyle = '#ffffff';
+      const fs = Math.round(H * 0.06 * (d.titleSize ?? 1));
+      ctx.font = `700 ${fs}px ${d.titleFont || '"Anton", sans-serif'}`;
+      ctx.fillStyle = d.titleColor || '#ffffff';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowColor = 'rgba(0,0,0,0.8)';
@@ -93,9 +105,9 @@ export class IntroOutro {
     }
 
     if (d.subtitle) {
-      const fs = Math.round(H * 0.025);
-      ctx.font = `400 ${fs}px "Shippori Mincho B1", serif`;
-      ctx.fillStyle = 'rgba(255,255,255,0.7)';
+      const fs = Math.round(H * 0.025 * (d.subtitleSize ?? 1));
+      ctx.font = `400 ${fs}px ${d.subtitleFont || '"Shippori Mincho B1", serif'}`;
+      ctx.fillStyle = d.subtitleColor || 'rgba(255,255,255,0.7)';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.shadowBlur = 8;

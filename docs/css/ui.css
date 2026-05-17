@@ -753,3 +753,56 @@ select option[disabled] {
   display: none;
 }
 .duration-warning.is-visible { display: block; }
+
+/* ============ Properties Panel Scroll Fix ============ */
+.creator-layout .properties-panel {
+  max-height: calc(100vh - 220px);
+  overflow-y: auto;
+}
+.creator-layout .timeline-panel {
+  max-height: 280px;
+  overflow-y: auto;
+}
+
+/* ============ Suggestion Pills ============ */
+.suggestion-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin-top: 4px;
+}
+.suggestion-pill {
+  font-size: 10px;
+  padding: 3px 9px;
+  background: rgba(99, 102, 241, 0.12);
+  border: 1px solid rgba(99, 102, 241, 0.35);
+  border-radius: var(--radius-pill);
+  color: rgba(180, 190, 255, 0.95);
+  cursor: pointer;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  max-width: 100%;
+  transition: background 0.15s, border-color 0.15s;
+}
+.suggestion-pill:hover {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.7);
+}
+.suggestion-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 10px;
+  color: var(--fg-faint);
+  margin-top: 6px;
+}
+.suggestion-refresh {
+  background: none;
+  border: none;
+  color: var(--accent-soft);
+  font-size: 10px;
+  cursor: pointer;
+  padding: 2px 6px;
+}
+.suggestion-refresh:hover { color: var(--accent); }

@@ -22,6 +22,7 @@ import { Timeline } from './timeline.js';
 import { PRESETS, getPresetById } from './platform-presets.js';
 import { IntroOutro } from './intro-outro.js';
 import { PhonePreview } from './phone-preview.js';
+import { SUGGESTIONS, pickRandom } from './sns-suggestions.js';
 
 const EFFECTS = [
   { id: 'none', label: 'なし' },
@@ -825,22 +826,34 @@ function buildSnsSection(container, introOutro, getTrackTitle) {
 
   const hint = document.createElement('div');
   hint.className = 'sns-panel-hint';
-  hint.textContent = 'イントロ・アウトロカードは録画に含まれます。プラットフォームプリセットを選ぶと安全域がプレビュー表示されます（録画には入りません）。';
+  hint.textContent = 'イントロ・アウトロカードは録画に含まれます。各項目下のチップをタップすると例文が入ります（8秒ごとに更新）。';
   container.appendChild(hint);
 
   container.appendChild(makeSnsSubsection('イントロカード', introOutro.intro, [
-    { key: 'enabled', type: 'toggle', label: '表示' },
-    { key: 'duration', type: 'range', label: '秒数', min: 1, max: 6, step: 0.5, fmt: v => v + 's' },
-    { key: 'title', type: 'text', label: 'タイトル', placeholder: '曲名（空なら現在の曲名）' },
-    { key: 'subtitle', type: 'text', label: 'サブ', placeholder: 'バンド名や説明' },
+    { key: 'enabled',  type: 'toggle', label: '表示' },
+    { key: 'duration', type: 'range',  label: '秒数', min: 1, max: 6, step: 0.5, fmt: v => v + 's' },
+    { key: 'title',    type: 'text',   label: 'タイトル', placeholder: '曲名など', suggest: SUGGESTIONS.introTitle },
+    { key: 'titleFont', type: 'font',  label: 'タイトル書体' },
+    { key: 'titleSize', type: 'range', label: 'タイトルサイズ', min: 0.5, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+    { key: 'titleColor', type: 'color', label: 'タイトル色' },
+    { key: 'subtitle', type: 'text',   label: 'サブ', placeholder: 'バンド名・説明など', suggest: SUGGESTIONS.introSubtitle },
+    { key: 'subtitleFont', type: 'font', label: 'サブ書体' },
+    { key: 'subtitleSize', type: 'range', label: 'サブサイズ', min: 0.5, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+    { key: 'subtitleColor', type: 'color', label: 'サブ色' },
   ]));
 
   container.appendChild(makeSnsSubsection('アウトロカード', introOutro.outro, [
-    { key: 'enabled', type: 'toggle', label: '表示' },
-    { key: 'duration', type: 'range', label: '秒数', min: 1, max: 6, step: 0.5, fmt: v => v + 's' },
-    { key: 'title', type: 'text', label: 'タイトル', placeholder: 'Follow / Listen' },
-    { key: 'subtitle', type: 'text', label: 'サブ', placeholder: '@your_handle' },
-    { key: 'qrUrl', type: 'text', label: 'QR URL', placeholder: 'https://...' },
+    { key: 'enabled',  type: 'toggle', label: '表示' },
+    { key: 'duration', type: 'range',  label: '秒数', min: 1, max: 6, step: 0.5, fmt: v => v + 's' },
+    { key: 'title',    type: 'text',   label: 'タイトル', placeholder: 'Follow / Listen', suggest: SUGGESTIONS.outroTitle },
+    { key: 'titleFont', type: 'font',  label: 'タイトル書体' },
+    { key: 'titleSize', type: 'range', label: 'タイトルサイズ', min: 0.5, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+    { key: 'titleColor', type: 'color', label: 'タイトル色' },
+    { key: 'subtitle', type: 'text',   label: 'サブ', placeholder: '@your_handle', suggest: SUGGESTIONS.outroSubtitle },
+    { key: 'subtitleFont', type: 'font', label: 'サブ書体' },
+    { key: 'subtitleSize', type: 'range', label: 'サブサイズ', min: 0.5, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
+    { key: 'subtitleColor', type: 'color', label: 'サブ色' },
+    { key: 'qrUrl',    type: 'text',   label: 'QR URL', placeholder: 'https://...', suggest: SUGGESTIONS.outroQRUrl },
   ]));
 }
 
@@ -906,6 +919,74 @@ function makeSnsSubsection(title, target, fields) {
       inp.style.width = '100%';
       inp.addEventListener('input', () => { target[f.key] = inp.value; });
       row.appendChild(inp);
+
+      // サジェストピル（定期更新）
+      if (f.suggest && f.suggest.length > 0) {
+        const head = document.createElement('div');
+        head.className = 'suggestion-header';
+        const headLabel = document.createElement('span');
+        headLabel.textContent = '💡 例文';
+        const refresh = document.createElement('button');
+        refresh.className = 'suggestion-refresh';
+        refresh.textContent = '↻ 別の例';
+        head.appendChild(headLabel);
+        head.appendChild(refresh);
+        row.appendChild(head);
+
+        const pillsRow = document.createElement('div');
+        pillsRow.className = 'suggestion-row';
+        row.appendChild(pillsRow);
+
+        const renderPills = () => {
+          pillsRow.innerHTML = '';
+          pickRandom(f.suggest, 3).forEach(text => {
+            const pill = document.createElement('button');
+            pill.className = 'suggestion-pill';
+            pill.textContent = text;
+            pill.title = 'クリックして入力欄に挿入';
+            pill.addEventListener('click', () => {
+              inp.value = text;
+              target[f.key] = text;
+              inp.dispatchEvent(new Event('input', { bubbles: true }));
+            });
+            pillsRow.appendChild(pill);
+          });
+        };
+        renderPills();
+        refresh.addEventListener('click', renderPills);
+        const timer = setInterval(renderPills, 8000);
+        // 親 details がクローズ/オープンしてもタイマーは継続（軽量なので問題なし）
+        pillsRow._timer = timer;
+      }
+
+      wrap.appendChild(row);
+    } else if (f.type === 'font') {
+      const row = document.createElement('div');
+      row.className = 'field';
+      const lab = document.createElement('div');
+      lab.className = 'field-label';
+      lab.textContent = f.label;
+      row.appendChild(lab);
+      const sel = document.createElement('select');
+      sel.className = 'font-select';
+      FONTS.forEach(font => {
+        const opt = document.createElement('option');
+        opt.value = font.family;
+        opt.textContent = `${font.label}`;
+        opt.style.fontFamily = font.family;
+        if (target[f.key] === font.family) opt.selected = true;
+        sel.appendChild(opt);
+      });
+      // 既存の値が FONTS にない場合（"Anton" など）も保持
+      if (!FONTS.some(font => font.family === target[f.key])) {
+        const opt = document.createElement('option');
+        opt.value = target[f.key];
+        opt.textContent = `(現在: ${target[f.key]})`;
+        opt.selected = true;
+        sel.insertBefore(opt, sel.firstChild);
+      }
+      sel.addEventListener('change', () => { target[f.key] = sel.value; });
+      row.appendChild(sel);
       wrap.appendChild(row);
     }
   });
