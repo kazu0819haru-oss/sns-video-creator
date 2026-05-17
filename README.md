@@ -47,9 +47,16 @@ npx serve docs/
    - Folder: `/docs`
 4. 数分後、`https://<USER>.github.io/<REPO>/` で公開される
 
-## 録画した動画を mp4 化（任意）
+## 録画ファイル形式
 
-録画は WebM 形式で出力される（MP4直接出力は v2 計画中）。mp4 が必要な場合は ffmpeg:
+ブラウザに応じて自動で最適な形式に書き出します:
+
+- **Chrome / Edge / Safari（最新版）** → `.mp4`（H.264 + AAC、直接 SNS 投稿可能）
+- **Firefox など WebCodecs 非対応** → `.webm`（VP9/VP8 + Opus）
+
+### WebM から MP4 に変換したい場合（任意）
+
+ffmpeg をインストールして:
 
 ```bash
 ffmpeg -i input.webm -c:v libx264 -crf 18 -preset slow -c:a aac -b:a 192k -movflags +faststart output.mp4
