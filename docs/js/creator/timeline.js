@@ -53,7 +53,7 @@ export class Timeline {
       this._addTrimHandles(bar, fill, this.audioTrim.duration,
         () => this.audioTrim.trimStart,
         () => this.audioTrim.trimEnd ?? this.audioTrim.duration,
-        (s) => this.audioTrim.setStart(s),
+        (s) => { this.audioTrim.setStart(s); this._updateVideoSpacer(); },
         (e) => this.audioTrim.setEnd(e));
 
       const ph = document.createElement('div');
@@ -81,6 +81,13 @@ export class Timeline {
     row.appendChild(track);
 
     const scale = this._scale();
+
+    // 音源 trimStart に合わせた先頭スペーサー（動画クリップの開始位置を揃える）
+    const spacer = document.createElement('div');
+    spacer.className = 'tl-video-spacer';
+    spacer.style.width = `${(this.audioTrim.trimStart || 0) * scale}px`;
+    track.appendChild(spacer);
+    this._videoSpacer = spacer;
 
     this.videoClips.clips.forEach((clip, i) => {
       const trimDur = clip.trimEnd - clip.trimStart;
@@ -145,6 +152,13 @@ export class Timeline {
       onClick();
     });
     return btn;
+  }
+
+  // 音源 trimStart の変更時に動画トラック先頭スペーサーの幅を更新
+  _updateVideoSpacer() {
+    if (!this._videoSpacer) return;
+    const scale = this._scale();
+    this._videoSpacer.style.width = `${(this.audioTrim.trimStart || 0) * scale}px`;
   }
 
   // カットボタン押下時のロジック
