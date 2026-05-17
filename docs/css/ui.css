@@ -708,3 +708,48 @@ select option[disabled] {
   flex-shrink: 0;
 }
 .tl-add-btn:hover { background: rgba(255,255,255,0.08); color: var(--fg); }
+
+/* ============ Safe Zones Overlay ============ */
+.safe-zones {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  z-index: 5;
+}
+.safe-zones[hidden] { display: none; }
+.safe-zone {
+  position: absolute;
+  background: rgba(229, 30, 48, 0.18);
+  border: 1px dashed rgba(229, 30, 48, 0.6);
+}
+.safe-zone--top    { top: 0; left: 0; right: 0; }
+.safe-zone--bottom { bottom: 0; left: 0; right: 0; }
+.safe-zone--left   { top: 0; bottom: 0; left: 0; }
+.safe-zone--right  { top: 0; bottom: 0; right: 0; }
+
+/* ============ Phone Preview ============ */
+#c-phone-canvas {
+  aspect-ratio: 9/16;
+  display: block;
+}
+
+/* ============ SNS panel hint ============ */
+.sns-panel-hint {
+  font-size: 11px;
+  color: var(--fg-muted);
+  line-height: 1.6;
+  padding: 8px 10px;
+  background: rgba(26, 157, 82, 0.08);
+  border: 1px solid rgba(26, 157, 82, 0.25);
+  border-radius: var(--radius-sm);
+}
+.duration-warning {
+  font-size: 11px;
+  color: #ff9b6b;
+  padding: 8px 10px;
+  background: rgba(255, 100, 50, 0.08);
+  border: 1px solid rgba(255, 100, 50, 0.3);
+  border-radius: var(--radius-sm);
+  display: none;
+}
+.duration-warning.is-visible { display: block; }
