@@ -100,10 +100,13 @@ export class Timeline {
 
       const tools = document.createElement('div');
       tools.className = 'tl-clip-tools';
+      const cutBtn = this._mkToolBtn('✂', 'カット（再生位置で分割）', true, () => this._cutClip(i));
       const upBtn = this._mkToolBtn('◀', '前へ', i > 0, () => this.videoClips.moveClip(i, -1));
       const downBtn = this._mkToolBtn('▶', '次へ', i < this.videoClips.clips.length - 1, () => this.videoClips.moveClip(i, 1));
       const delBtn = this._mkToolBtn('×', '削除', true, () => this.videoClips.removeClip(i));
       delBtn.classList.add('tl-tool--danger');
+      cutBtn.classList.add('tl-tool--cut');
+      tools.appendChild(cutBtn);
       tools.appendChild(upBtn);
       tools.appendChild(downBtn);
       tools.appendChild(delBtn);
@@ -116,6 +119,8 @@ export class Timeline {
         (s) => this.videoClips.setTrim(i, s, clip.trimEnd),
         (e) => this.videoClips.setTrim(i, clip.trimStart, e),
       );
+
+      this._installDragReorder(bar, i, track);
 
       track.appendChild(bar);
     });
@@ -140,6 +145,57 @@ export class Timeline {
       onClick();
     });
     return btn;
+  }
+
+  // カットボタン押下時のロジック
+  // 音源 playhead がこのクリップ内なら playhead 位置で分割、それ以外なら中点で分割
+  _cutClip(idx) {
+    const clips = this.videoClips.clips;
+    const c = clips[idx];
+    if (!c) return;
+    const ct = (this.getCurrentTime ? this.getCurrentTime() : 0) - (this.audioTrim.trimStart || 0);
+    let acc = 0;
+    let splitLocal = (c.trimStart + c.trimEnd) / 2; // デフォルト: 中点
+    for (let i = 0; i < clips.length; i++) {
+      const cc = clips[i];
+      const dur = cc.trimEnd - cc.trimStart;
+      if (i === idx && ct >= acc && ct < acc + dur) {
+        splitLocal = cc.trimStart + (ct - acc);
+        break;
+      }
+      acc += dur;
+    }
+    this.videoClips.splitClip(idx, splitLocal);
+  }
+
+  // クリップ本体（ハンドル/ボタン以外）をドラッグして並べ替え
+  _installDragReorder(bar, idx, track) {
+    bar.addEventListener('mousedown', ev => {
+      // ハンドル・ツールボタン上では並べ替えを起動しない
+      if (ev.target.closest('.tl-handle') || ev.target.closest('.tl-tool-btn')) return;
+      ev.preventDefault();
+      bar.classList.add('tl-bar--dragging');
+      let currentIdx = idx;
+      const onMove = e => {
+        // マウス X 座標にあるクリップ要素を判定
+        const elBelow = document.elementFromPoint(e.clientX, e.clientY);
+        const targetBar = elBelow && elBelow.closest('.tl-bar--video');
+        if (!targetBar || targetBar === bar) return;
+        // target の中のインデックスを track 内の位置から判定
+        const allBars = [...track.querySelectorAll('.tl-bar--video')];
+        const targetIdx = allBars.indexOf(targetBar);
+        if (targetIdx === -1 || targetIdx === currentIdx) return;
+        this.videoClips.moveClipTo(currentIdx, targetIdx);
+        currentIdx = targetIdx;
+      };
+      const onUp = () => {
+        bar.classList.remove('tl-bar--dragging');
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
   }
 
   _addTrimHandles(bar, fill, duration, getStart, getEnd, setStart, setEnd) {

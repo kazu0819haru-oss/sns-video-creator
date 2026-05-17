@@ -806,3 +806,36 @@ select option[disabled] {
   padding: 2px 6px;
 }
 .suggestion-refresh:hover { color: var(--accent); }
+
+/* ============ Properties Panel Scroll (確実版) ============ */
+.creator-layout {
+  grid-template-rows: minmax(0, 1fr);
+}
+.creator-layout .properties-panel {
+  height: calc(100vh - 220px) !important;
+  max-height: calc(100vh - 220px) !important;
+  min-height: 200px;
+  overflow-y: auto !important;
+  overflow-x: hidden;
+}
+/* 個別のアコーディオン body も内部が長い場合はスクロール */
+.accordion-body {
+  max-height: none;
+}
+
+/* ============ Timeline drag-to-reorder ============ */
+.tl-bar--video {
+  cursor: grab;
+  user-select: none;
+  transition: transform 0.15s, opacity 0.15s;
+}
+.tl-bar--video:active { cursor: grabbing; }
+.tl-bar--dragging {
+  opacity: 0.55;
+  outline: 2px solid var(--accent-soft);
+  outline-offset: 2px;
+}
+.tl-tool--cut {
+  color: #fcd34d;
+  border-color: rgba(245, 158, 11, 0.6) !important;
+}

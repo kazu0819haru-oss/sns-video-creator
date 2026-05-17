@@ -836,10 +836,12 @@ function buildSnsSection(container, introOutro, getTrackTitle) {
     { key: 'titleFont', type: 'font',  label: 'タイトル書体' },
     { key: 'titleSize', type: 'range', label: 'タイトルサイズ', min: 0.5, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
     { key: 'titleColor', type: 'color', label: 'タイトル色' },
+    { key: 'titleY', type: 'range', label: 'タイトル位置(縦)', min: 0.05, max: 0.95, step: 0.01, fmt: v => Math.round(v * 100) + '%' },
     { key: 'subtitle', type: 'text',   label: 'サブ', placeholder: 'バンド名・説明など', suggest: SUGGESTIONS.introSubtitle },
     { key: 'subtitleFont', type: 'font', label: 'サブ書体' },
     { key: 'subtitleSize', type: 'range', label: 'サブサイズ', min: 0.5, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
     { key: 'subtitleColor', type: 'color', label: 'サブ色' },
+    { key: 'subtitleY', type: 'range', label: 'サブ位置(縦)', min: 0.05, max: 0.95, step: 0.01, fmt: v => Math.round(v * 100) + '%' },
   ]));
 
   container.appendChild(makeSnsSubsection('アウトロカード', introOutro.outro, [
@@ -849,11 +851,14 @@ function buildSnsSection(container, introOutro, getTrackTitle) {
     { key: 'titleFont', type: 'font',  label: 'タイトル書体' },
     { key: 'titleSize', type: 'range', label: 'タイトルサイズ', min: 0.5, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
     { key: 'titleColor', type: 'color', label: 'タイトル色' },
+    { key: 'titleY', type: 'range', label: 'タイトル位置(縦)', min: 0.05, max: 0.95, step: 0.01, fmt: v => Math.round(v * 100) + '%' },
     { key: 'subtitle', type: 'text',   label: 'サブ', placeholder: '@your_handle', suggest: SUGGESTIONS.outroSubtitle },
     { key: 'subtitleFont', type: 'font', label: 'サブ書体' },
     { key: 'subtitleSize', type: 'range', label: 'サブサイズ', min: 0.5, max: 2.5, step: 0.05, fmt: v => v.toFixed(2) + 'x' },
     { key: 'subtitleColor', type: 'color', label: 'サブ色' },
+    { key: 'subtitleY', type: 'range', label: 'サブ位置(縦)', min: 0.05, max: 0.95, step: 0.01, fmt: v => Math.round(v * 100) + '%' },
     { key: 'qrUrl',    type: 'text',   label: 'QR URL', placeholder: 'https://...', suggest: SUGGESTIONS.outroQRUrl },
+    { key: 'qrY', type: 'range', label: 'QR位置(縦)', min: 0.1, max: 0.9, step: 0.01, fmt: v => Math.round(v * 100) + '%' },
   ]));
 }
 

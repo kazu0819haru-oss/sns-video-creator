@@ -40,7 +40,11 @@ export class VideoClips {
   removeClip(idx) {
     const c = this.clips[idx];
     if (!c) return;
-    try { URL.revokeObjectURL(c.video.src); } catch (_) {}
+    // 同じ video 要素を共有する分割クリップが他にないなら URL を revoke
+    const shared = this.clips.filter(cc => cc.video === c.video).length;
+    if (shared === 1) {
+      try { URL.revokeObjectURL(c.video.src); } catch (_) {}
+    }
     this.clips.splice(idx, 1);
     if (this.activeIdx >= this.clips.length) this.activeIdx = -1;
     this._notify();
@@ -50,6 +54,36 @@ export class VideoClips {
     const j = idx + dir;
     if (j < 0 || j >= this.clips.length) return;
     [this.clips[idx], this.clips[j]] = [this.clips[j], this.clips[idx]];
+    this._notify();
+  }
+
+  // クリップを任意の位置 toIdx に移動（ドラッグ並べ替え用）
+  moveClipTo(fromIdx, toIdx) {
+    if (fromIdx === toIdx) return;
+    if (fromIdx < 0 || fromIdx >= this.clips.length) return;
+    if (toIdx < 0 || toIdx >= this.clips.length) return;
+    const [moved] = this.clips.splice(fromIdx, 1);
+    this.clips.splice(toIdx, 0, moved);
+    this._notify();
+  }
+
+  // localTime（オリジナル動画内の秒）でクリップを2つに分割（カット）
+  splitClip(idx, localTime) {
+    const c = this.clips[idx];
+    if (!c) return;
+    if (localTime <= c.trimStart + 0.05 || localTime >= c.trimEnd - 0.05) return;
+    // 同じ <video> 要素を共有する新クリップを作成。drawImage は同一要素を参照できる。
+    const newClip = {
+      id: Date.now() + Math.random(),
+      file: c.file,
+      video: c.video,
+      name: c.name,
+      duration: c.duration,
+      trimStart: localTime,
+      trimEnd: c.trimEnd,
+    };
+    c.trimEnd = localTime;
+    this.clips.splice(idx + 1, 0, newClip);
     this._notify();
   }
 
