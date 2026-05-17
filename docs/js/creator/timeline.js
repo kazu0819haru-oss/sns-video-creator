@@ -1,15 +1,20 @@
 // タイムライン DOM コンポーネント。音源バー + 動画クリップトラックを表示。
 // 各バーの両端にトリムハンドルを置き、ドラッグで秒値を更新する。
 export class Timeline {
-  constructor(container, { audioTrim, videoClips, onPickVideo, onSeek, getCurrentTime }) {
+  constructor(container, { audioTrim, videoClips, history, onPickVideo, onSeek, getCurrentTime }) {
     this.container = container;
     this.audioTrim = audioTrim;
     this.videoClips = videoClips;
+    this.history = history;
     this.onPickVideo = onPickVideo;
     this.onSeek = onSeek;
     this.getCurrentTime = getCurrentTime;
     this.render();
     this.videoClips.onChange = () => this.render();
+  }
+
+  _snapshot() {
+    if (this.history) this.history.push(this.audioTrim, this.videoClips);
   }
 
   _scale() {
@@ -50,11 +55,48 @@ export class Timeline {
       fill.className = 'tl-bar-fill tl-bar-fill--audio';
       bar.appendChild(fill);
 
+      let audioDragInitial = null;
       this._addTrimHandles(bar, fill, this.audioTrim.duration,
         () => this.audioTrim.trimStart,
         () => this.audioTrim.trimEnd ?? this.audioTrim.duration,
-        (s, _finalize) => { this.audioTrim.setStart(s); this._updateVideoSpacer(); },
-        (e, _finalize) => this.audioTrim.setEnd(e));
+        (s, finalize) => {
+          if (audioDragInitial === null) {
+            audioDragInitial = { trimStart: this.audioTrim.trimStart, trimEnd: this.audioTrim.trimEnd };
+          }
+          this.audioTrim.setStart(s);
+          this._updateVideoSpacer();
+          if (finalize) {
+            const ai = audioDragInitial;
+            if (ai && (ai.trimStart !== this.audioTrim.trimStart || ai.trimEnd !== this.audioTrim.trimEnd)) {
+              // 履歴保存（initial 値で）
+              const cur = { trimStart: this.audioTrim.trimStart, trimEnd: this.audioTrim.trimEnd };
+              this.audioTrim.trimStart = ai.trimStart;
+              this.audioTrim.trimEnd = ai.trimEnd;
+              this._snapshot();
+              this.audioTrim.trimStart = cur.trimStart;
+              this.audioTrim.trimEnd = cur.trimEnd;
+            }
+            audioDragInitial = null;
+          }
+        },
+        (e, finalize) => {
+          if (audioDragInitial === null) {
+            audioDragInitial = { trimStart: this.audioTrim.trimStart, trimEnd: this.audioTrim.trimEnd };
+          }
+          this.audioTrim.setEnd(e);
+          if (finalize) {
+            const ai = audioDragInitial;
+            if (ai && (ai.trimStart !== this.audioTrim.trimStart || ai.trimEnd !== this.audioTrim.trimEnd)) {
+              const cur = { trimStart: this.audioTrim.trimStart, trimEnd: this.audioTrim.trimEnd };
+              this.audioTrim.trimStart = ai.trimStart;
+              this.audioTrim.trimEnd = ai.trimEnd;
+              this._snapshot();
+              this.audioTrim.trimStart = cur.trimStart;
+              this.audioTrim.trimEnd = cur.trimEnd;
+            }
+            audioDragInitial = null;
+          }
+        });
 
       const ph = document.createElement('div');
       ph.className = 'tl-playhead';
@@ -133,10 +175,10 @@ export class Timeline {
 
       const tools = document.createElement('div');
       tools.className = 'tl-clip-tools';
-      const cutBtn = this._mkToolBtn('✂', 'カット（再生位置で分割）', true, () => this._cutClip(i));
-      const upBtn = this._mkToolBtn('◀', '前へ', i > 0, () => this.videoClips.moveClip(i, -1));
-      const downBtn = this._mkToolBtn('▶', '次へ', i < this.videoClips.clips.length - 1, () => this.videoClips.moveClip(i, 1));
-      const delBtn = this._mkToolBtn('×', '削除', true, () => this.videoClips.removeClip(i));
+      const cutBtn = this._mkToolBtn('✂', 'カット（再生位置で分割）', true, () => { this._snapshot(); this._cutClip(i); });
+      const upBtn = this._mkToolBtn('◀', '前へ', i > 0, () => { this._snapshot(); this.videoClips.moveClip(i, -1); });
+      const downBtn = this._mkToolBtn('▶', '次へ', i < this.videoClips.clips.length - 1, () => { this._snapshot(); this.videoClips.moveClip(i, 1); });
+      const delBtn = this._mkToolBtn('×', '削除', true, () => { this._snapshot(); this.videoClips.removeClip(i); });
       delBtn.classList.add('tl-tool--danger');
       cutBtn.classList.add('tl-tool--cut');
       tools.appendChild(cutBtn);
@@ -145,29 +187,8 @@ export class Timeline {
       tools.appendChild(delBtn);
       bar.appendChild(tools);
 
-      // 先頭クリップの左トリムを動かしたら、その分だけ音源 trimStart も追従させる
-      let dragStartTrim = null;
-      this._addTrimHandles(
-        bar, fill, clip.duration,
-        () => clip.trimStart,
-        () => clip.trimEnd,
-        (s, finalize) => {
-          if (dragStartTrim === null) dragStartTrim = clip.trimStart;
-          this.videoClips.setTrim(i, s, clip.trimEnd, !finalize);
-          if (finalize) {
-            if (i === 0) {
-              const delta = clip.trimStart - dragStartTrim;
-              if (delta !== 0) {
-                const cur = this.audioTrim.trimStart || 0;
-                this.audioTrim.setStart(cur + delta);
-                // render() が videoClips._notify から発火するのでスペーサーも更新される
-              }
-            }
-            dragStartTrim = null;
-          }
-        },
-        (e, finalize) => this.videoClips.setTrim(i, clip.trimStart, e, !finalize),
-      );
+      // 動画トリム：ドラッグ中はビジュアル更新のみ、ドラッグ終了で確認ダイアログ → 承認で「カット」確定
+      this._addVideoTrimHandles(bar, fill, clip, i);
 
       this._installDragReorder(bar, i, track);
 
@@ -194,6 +215,92 @@ export class Timeline {
       onClick();
     });
     return btn;
+  }
+
+  // 動画クリップ専用トリム：ドラッグ中は描画のみ、mouseup で確認ダイアログ
+  _addVideoTrimHandles(bar, fill, clip, clipIdx) {
+    const leftH = document.createElement('div');
+    leftH.className = 'tl-handle tl-handle--left';
+    const rightH = document.createElement('div');
+    rightH.className = 'tl-handle tl-handle--right';
+    bar.appendChild(leftH);
+    bar.appendChild(rightH);
+
+    const duration = clip.duration;
+
+    const updateFill = () => {
+      const w = bar.clientWidth || 1;
+      const s = clip.trimStart;
+      const e = clip.trimEnd;
+      const left = (s / duration) * w;
+      const right = (e / duration) * w;
+      fill.style.left = `${left}px`;
+      fill.style.width = `${Math.max(0, right - left)}px`;
+      leftH.style.left = `${left}px`;
+      rightH.style.left = `${right}px`;
+    };
+    updateFill();
+    requestAnimationFrame(updateFill);
+
+    const beginDrag = (handle, isLeft) => {
+      handle.addEventListener('mousedown', ev => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const initialStart = clip.trimStart;
+        const initialEnd = clip.trimEnd;
+        const onMove = e => {
+          const rect = bar.getBoundingClientRect();
+          const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
+          const t = ratio * duration;
+          const min = clip.clipMin ?? 0;
+          const max = clip.clipMax ?? duration;
+          if (isLeft) {
+            clip.trimStart = Math.max(min, Math.min(t, clip.trimEnd - 0.05));
+          } else {
+            clip.trimEnd = Math.max(clip.trimStart + 0.05, Math.min(t, max));
+          }
+          updateFill();
+        };
+        const onUp = () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+          const changed = Math.abs(clip.trimStart - initialStart) > 0.01 || Math.abs(clip.trimEnd - initialEnd) > 0.01;
+          if (!changed) return;
+          const ok = window.confirm(
+            `クリップ「${clip.name}」をこの範囲でカット（切り抜き）しますか？\n\n` +
+            `変更前: ${initialStart.toFixed(2)}s 〜 ${initialEnd.toFixed(2)}s\n` +
+            `変更後: ${clip.trimStart.toFixed(2)}s 〜 ${clip.trimEnd.toFixed(2)}s\n\n` +
+            `※ カットされた部分は削除されます。やり直す場合は Ctrl+Z`
+          );
+          if (ok) {
+            // カット確定前の状態を history に保存（initial 値ベース）
+            if (this.history) {
+              // 一時的に initial 値に戻してから push、その後カット後値に戻す
+              const savedStart = clip.trimStart;
+              const savedEnd = clip.trimEnd;
+              clip.trimStart = initialStart;
+              clip.trimEnd = initialEnd;
+              this.history.push(this.audioTrim, this.videoClips);
+              clip.trimStart = savedStart;
+              clip.trimEnd = savedEnd;
+            }
+            // カット範囲をロック
+            clip.clipMin = clip.trimStart;
+            clip.clipMax = clip.trimEnd;
+            this.videoClips._notify();
+          } else {
+            // キャンセル：元に戻す
+            clip.trimStart = initialStart;
+            clip.trimEnd = initialEnd;
+            this.videoClips._notify();
+          }
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      });
+    };
+    beginDrag(leftH, true);
+    beginDrag(rightH, false);
   }
 
   // 音源 trimStart の変更時に動画トラック先頭スペーサーの幅を更新
@@ -232,6 +339,7 @@ export class Timeline {
       ev.preventDefault();
       bar.classList.add('tl-bar--dragging');
       let currentIdx = idx;
+      let snapshotted = false;
       const onMove = e => {
         // マウス X 座標にあるクリップ要素を判定
         const elBelow = document.elementFromPoint(e.clientX, e.clientY);
@@ -241,6 +349,7 @@ export class Timeline {
         const allBars = [...track.querySelectorAll('.tl-bar--video')];
         const targetIdx = allBars.indexOf(targetBar);
         if (targetIdx === -1 || targetIdx === currentIdx) return;
+        if (!snapshotted) { this._snapshot(); snapshotted = true; }
         this.videoClips.moveClipTo(currentIdx, targetIdx);
         currentIdx = targetIdx;
       };

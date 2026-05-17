@@ -31,6 +31,8 @@ export class VideoClips {
       duration: video.duration,
       trimStart: 0,
       trimEnd: video.duration,
+      clipMin: 0,                  // カット確定後はこの範囲外にトリムできなくなる
+      clipMax: video.duration,
     };
     this.clips.push(clip);
     this._notify();
@@ -40,11 +42,7 @@ export class VideoClips {
   removeClip(idx) {
     const c = this.clips[idx];
     if (!c) return;
-    // 同じ video 要素を共有する分割クリップが他にないなら URL を revoke
-    const shared = this.clips.filter(cc => cc.video === c.video).length;
-    if (shared === 1) {
-      try { URL.revokeObjectURL(c.video.src); } catch (_) {}
-    }
+    // Undo で復活可能にするため URL revoke はしない（タブを閉じる時に GC）
     this.clips.splice(idx, 1);
     if (this.activeIdx >= this.clips.length) this.activeIdx = -1;
     this._notify();
@@ -81,6 +79,8 @@ export class VideoClips {
       duration: c.duration,
       trimStart: localTime,
       trimEnd: c.trimEnd,
+      clipMin: c.clipMin ?? 0,
+      clipMax: c.clipMax ?? c.duration,
     };
     c.trimEnd = localTime;
     this.clips.splice(idx + 1, 0, newClip);
@@ -90,8 +90,10 @@ export class VideoClips {
   setTrim(idx, trimStart, trimEnd, suppressNotify = false) {
     const c = this.clips[idx];
     if (!c) return;
-    c.trimStart = Math.max(0, Math.min(trimStart, c.duration));
-    c.trimEnd = Math.max(c.trimStart, Math.min(trimEnd, c.duration));
+    const min = c.clipMin ?? 0;
+    const max = c.clipMax ?? c.duration;
+    c.trimStart = Math.max(min, Math.min(trimStart, max));
+    c.trimEnd = Math.max(c.trimStart, Math.min(trimEnd, max));
     if (!suppressNotify) this._notify();
   }
 

@@ -19,6 +19,7 @@ import { getLrcHistory, addToLrcHistory, clearLrcHistory } from '../shared/lrc-h
 import { VideoClips } from './video-clips.js';
 import { AudioTrim } from './audio-trim.js';
 import { Timeline } from './timeline.js';
+import { History } from './history.js';
 import { PRESETS, getPresetById } from './platform-presets.js';
 import { IntroOutro } from './intro-outro.js';
 import { PhonePreview } from './phone-preview.js';
@@ -46,6 +47,7 @@ export function initCreatorTab() {
   const dragMgr = new DragManager(canvas);
   const videoClips = new VideoClips();
   const audioTrim = new AudioTrim();
+  const history = new History();
   let backgroundMode = 'visualizer'; // 'visualizer' | 'video'
   let timeline = null;
   const introOutro = new IntroOutro();
@@ -382,10 +384,31 @@ export function initCreatorTab() {
   timeline = new Timeline($('c-timeline-body'), {
     audioTrim,
     videoClips,
+    history,
     onPickVideo: () => $('c-video-input').click(),
     onSeek: t => { if (audioGraph.audio) audioGraph.audio.currentTime = t; },
     getCurrentTime: () => audioGraph.audio?.currentTime || 0,
   });
+
+  // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y で Undo/Redo
+  document.addEventListener('keydown', e => {
+    if (!document.getElementById('panel-creator').classList.contains('is-active')) return;
+    const tag = document.activeElement.tagName;
+    if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT') return;
+    const ctrl = e.ctrlKey || e.metaKey;
+    if (!ctrl) return;
+    if (e.key === 'z' && !e.shiftKey) {
+      e.preventDefault();
+      history.undo(audioTrim, videoClips);
+    } else if ((e.key === 'z' && e.shiftKey) || e.key === 'y') {
+      e.preventDefault();
+      history.redo(audioTrim, videoClips);
+    }
+  });
+
+  // Undo/Redo ボタン
+  $('c-undo-btn').addEventListener('click', () => history.undo(audioTrim, videoClips));
+  $('c-redo-btn').addEventListener('click', () => history.redo(audioTrim, videoClips));
 
   const phoneCanvas = document.getElementById('c-phone-canvas');
   if (phoneCanvas) {
