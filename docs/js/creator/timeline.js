@@ -1,12 +1,13 @@
 // タイムライン DOM コンポーネント。音源バー + 動画クリップトラックを表示。
 // 各バーの両端にトリムハンドルを置き、ドラッグで秒値を更新する。
 export class Timeline {
-  constructor(container, { audioTrim, videoClips, history, onPickVideo, onSeek, getCurrentTime }) {
+  constructor(container, { audioTrim, videoClips, history, onPickVideo, onPickImage, onSeek, getCurrentTime }) {
     this.container = container;
     this.audioTrim = audioTrim;
     this.videoClips = videoClips;
     this.history = history;
     this.onPickVideo = onPickVideo;
+    this.onPickImage = onPickImage;
     this.onSeek = onSeek;
     this.getCurrentTime = getCurrentTime;
     this.render();
@@ -158,20 +159,20 @@ export class Timeline {
     this._videoSpacer = spacer;
 
     this.videoClips.clips.forEach((clip, i) => {
+      const kind = clip.kind || 'video';
       const trimDur = clip.trimEnd - clip.trimStart;
       const bar = document.createElement('div');
-      bar.className = 'tl-bar tl-bar--video';
-      // 時間軸と完全一致させるため最小幅を撤廃（短いクリップは見にくいが正確）
+      bar.className = `tl-bar tl-bar--${kind}`;
       bar.style.width = `${Math.max(4, trimDur * scale)}px`;
       bar.title = clip.name;
 
       const fill = document.createElement('div');
-      fill.className = 'tl-bar-fill tl-bar-fill--video';
+      fill.className = `tl-bar-fill tl-bar-fill--${kind}`;
       bar.appendChild(fill);
 
       const name = document.createElement('span');
       name.className = 'tl-clip-name';
-      name.textContent = clip.name;
+      name.textContent = (kind === 'image' ? '🖼 ' : '🎬 ') + clip.name;
       fill.appendChild(name);
 
       const tools = document.createElement('div');
@@ -188,19 +189,30 @@ export class Timeline {
       tools.appendChild(delBtn);
       bar.appendChild(tools);
 
-      // 動画トリム：ドラッグ中はビジュアル更新のみ、ドラッグ終了で確認ダイアログ → 承認で「カット」確定
-      this._addVideoTrimHandles(bar, fill, clip, i);
+      // クリップ種類別ハンドル
+      if (kind === 'image') {
+        this._addImageDurationHandle(bar, fill, clip, i);
+      } else {
+        this._addVideoTrimHandles(bar, fill, clip, i);
+      }
 
       this._installDragReorder(bar, i, track);
 
       track.appendChild(bar);
     });
 
-    const addBtn = document.createElement('button');
-    addBtn.className = 'tl-add-btn';
-    addBtn.textContent = '＋ クリップ追加';
-    addBtn.addEventListener('click', () => this.onPickVideo && this.onPickVideo());
-    track.appendChild(addBtn);
+    const addVideoBtn = document.createElement('button');
+    addVideoBtn.className = 'tl-add-btn';
+    addVideoBtn.textContent = '＋ 動画';
+    addVideoBtn.addEventListener('click', () => this.onPickVideo && this.onPickVideo());
+    track.appendChild(addVideoBtn);
+
+    const addImageBtn = document.createElement('button');
+    addImageBtn.className = 'tl-add-btn';
+    addImageBtn.textContent = '＋ 画像';
+    addImageBtn.style.marginLeft = '4px';
+    addImageBtn.addEventListener('click', () => this.onPickImage && this.onPickImage());
+    track.appendChild(addImageBtn);
 
     return row;
   }
@@ -216,6 +228,47 @@ export class Timeline {
       onClick();
     });
     return btn;
+  }
+
+  // 画像クリップ専用：右ハンドルだけで表示時間を伸縮（確認ダイアログなし、自由）
+  _addImageDurationHandle(bar, fill, clip, clipIdx) {
+    const rightH = document.createElement('div');
+    rightH.className = 'tl-handle tl-handle--right';
+    bar.appendChild(rightH);
+
+    const updateFill = () => {
+      const w = bar.clientWidth || 1;
+      fill.style.left = '0px';
+      fill.style.width = `${w}px`;
+      rightH.style.left = `${w}px`;
+    };
+    updateFill();
+    requestAnimationFrame(updateFill);
+
+    rightH.addEventListener('mousedown', ev => {
+      ev.preventDefault();
+      ev.stopPropagation();
+      const initialDuration = clip.duration;
+      const startX = ev.clientX;
+      const scale = this._scale();
+      let snapshotted = false;
+      const onMove = e => {
+        if (!snapshotted) { this._snapshot(); snapshotted = true; }
+        const deltaPx = e.clientX - startX;
+        const deltaSec = scale > 0 ? deltaPx / scale : 0;
+        const newDur = Math.max(0.1, initialDuration + deltaSec);
+        this.videoClips.setImageDuration(clipIdx, newDur, true);
+        bar.style.width = `${Math.max(4, newDur * scale)}px`;
+        updateFill();
+      };
+      const onUp = () => {
+        window.removeEventListener('mousemove', onMove);
+        window.removeEventListener('mouseup', onUp);
+        this.videoClips._notify();
+      };
+      window.addEventListener('mousemove', onMove);
+      window.addEventListener('mouseup', onUp);
+    });
   }
 
   // 動画クリップ専用トリム：ドラッグ中は描画のみ、mouseup で確認ダイアログ

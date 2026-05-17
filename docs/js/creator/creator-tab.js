@@ -477,8 +477,27 @@ export function initCreatorTab() {
     videoClips,
     history,
     onPickVideo: () => $('c-video-input').click(),
+    onPickImage: () => $('c-image-clip-input').click(),
     onSeek: t => { if (audioGraph.audio) audioGraph.audio.currentTime = t; },
     getCurrentTime: () => audioGraph.audio?.currentTime || 0,
+  });
+
+  $('c-image-clip-input').addEventListener('change', async e => {
+    const f = e.target.files?.[0];
+    if (f) {
+      try {
+        history.push(audioTrim, videoClips);
+        await videoClips.addImageClip(f, 3);
+        if (backgroundMode !== 'video') {
+          bgModeSel.value = 'video';
+          bgModeSel.dispatchEvent(new Event('change'));
+        }
+      } catch (err) {
+        console.error(err);
+        alert('画像の読み込みに失敗しました: ' + err.message);
+      }
+    }
+    $('c-image-clip-input').value = '';
   });
 
   // Ctrl+Z / Ctrl+Shift+Z / Ctrl+Y で Undo/Redo

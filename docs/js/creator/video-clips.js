@@ -1,13 +1,16 @@
-// 動画クリップの管理と Canvas 描画。
+// 動画クリップ＋画像クリップの管理と Canvas 描画。
 // 音源のトリム後再生位置から、現在再生すべきクリップとそのローカル時刻を算出する。
 //
-// 各クリップ: { id, file, video (HTMLVideoElement), name, duration, trimStart, trimEnd }
-//   trimStart, trimEnd は秒。trimEnd === null は「最後まで」。
+// 各クリップ:
+//   { id, kind:'video', file, video, name, duration, trimStart, trimEnd, clipMin, clipMax }
+//   { id, kind:'image', file, img, name, duration, trimStart, trimEnd, clipMin, clipMax }
+//
+// image clip の duration は表示時間で、ユーザが右ハンドルで自由に伸縮可能。
 export class VideoClips {
   constructor() {
     this.clips = [];
     this.activeIdx = -1;
-    this.onChange = null; // タイムライン UI 再描画用
+    this.onChange = null;
   }
 
   _notify() { if (this.onChange) this.onChange(); }
@@ -25,13 +28,14 @@ export class VideoClips {
     });
     const clip = {
       id: Date.now() + Math.random(),
+      kind: 'video',
       file,
       video,
       name: file.name,
       duration: video.duration,
       trimStart: 0,
       trimEnd: video.duration,
-      clipMin: 0,                  // カット確定後はこの範囲外にトリムできなくなる
+      clipMin: 0,
       clipMax: video.duration,
     };
     this.clips.push(clip);
@@ -39,10 +43,46 @@ export class VideoClips {
     return clip;
   }
 
+  async addImageClip(file, defaultDuration = 3) {
+    const img = new Image();
+    img.src = URL.createObjectURL(file);
+    await new Promise((resolve, reject) => {
+      img.onload = resolve;
+      img.onerror = () => reject(new Error('画像読み込み失敗: ' + file.name));
+    });
+    const clip = {
+      id: Date.now() + Math.random(),
+      kind: 'image',
+      file,
+      img,
+      name: file.name,
+      duration: defaultDuration,
+      trimStart: 0,
+      trimEnd: defaultDuration,
+      clipMin: 0,
+      clipMax: defaultDuration,
+    };
+    this.clips.push(clip);
+    this._notify();
+    return clip;
+  }
+
+  // 画像クリップの表示時間を自由に変更（右ハンドルから）
+  setImageDuration(idx, newDuration, suppressNotify = false) {
+    const c = this.clips[idx];
+    if (!c || c.kind !== 'image') return;
+    const d = Math.max(0.1, newDuration);
+    c.duration = d;
+    c.trimStart = 0;
+    c.trimEnd = d;
+    c.clipMin = 0;
+    c.clipMax = d;
+    if (!suppressNotify) this._notify();
+  }
+
   removeClip(idx) {
     const c = this.clips[idx];
     if (!c) return;
-    // Undo で復活可能にするため URL revoke はしない（タブを閉じる時に GC）
     this.clips.splice(idx, 1);
     if (this.activeIdx >= this.clips.length) this.activeIdx = -1;
     this._notify();
@@ -55,7 +95,6 @@ export class VideoClips {
     this._notify();
   }
 
-  // クリップを任意の位置 toIdx に移動（ドラッグ並べ替え用）
   moveClipTo(fromIdx, toIdx) {
     if (fromIdx === toIdx) return;
     if (fromIdx < 0 || fromIdx >= this.clips.length) return;
@@ -65,14 +104,36 @@ export class VideoClips {
     this._notify();
   }
 
-  // localTime（オリジナル動画内の秒）でクリップを2つに分割（カット）
   splitClip(idx, localTime) {
     const c = this.clips[idx];
     if (!c) return;
+    if (c.kind === 'image') {
+      // 画像は localTime で2つに分割（両方とも同じ画像）
+      if (localTime <= 0.05 || localTime >= c.duration - 0.05) return;
+      const restDur = c.duration - localTime;
+      const newClip = {
+        id: Date.now() + Math.random(),
+        kind: 'image',
+        file: c.file,
+        img: c.img,
+        name: c.name,
+        duration: restDur,
+        trimStart: 0,
+        trimEnd: restDur,
+        clipMin: 0,
+        clipMax: restDur,
+      };
+      c.duration = localTime;
+      c.trimEnd = localTime;
+      c.clipMax = localTime;
+      this.clips.splice(idx + 1, 0, newClip);
+      this._notify();
+      return;
+    }
     if (localTime <= c.trimStart + 0.05 || localTime >= c.trimEnd - 0.05) return;
-    // 同じ <video> 要素を共有する新クリップを作成。drawImage は同一要素を参照できる。
     const newClip = {
       id: Date.now() + Math.random(),
+      kind: 'video',
       file: c.file,
       video: c.video,
       name: c.name,
@@ -119,7 +180,7 @@ export class VideoClips {
     if (!target) {
       if (this.activeIdx >= 0) {
         const prev = this.clips[this.activeIdx];
-        if (prev) prev.video.pause();
+        if (prev && (prev.kind || 'video') === 'video') prev.video.pause();
         this.activeIdx = -1;
       }
       return;
@@ -127,41 +188,51 @@ export class VideoClips {
     if (target.idx !== this.activeIdx) {
       if (this.activeIdx >= 0) {
         const prev = this.clips[this.activeIdx];
-        if (prev) prev.video.pause();
+        if (prev && (prev.kind || 'video') === 'video') prev.video.pause();
       }
       this.activeIdx = target.idx;
     }
     const active = this.clips[this.activeIdx];
     if (!active) return;
-    const drift = Math.abs(active.video.currentTime - target.localTime);
-    if (drift > 0.25) {
-      active.video.currentTime = target.localTime;
+    if ((active.kind || 'video') === 'video') {
+      const drift = Math.abs(active.video.currentTime - target.localTime);
+      if (drift > 0.25) active.video.currentTime = target.localTime;
+      if (isPlaying) {
+        if (active.video.paused) active.video.play().catch(() => {});
+      } else {
+        if (!active.video.paused) active.video.pause();
+      }
     }
-    if (isPlaying) {
-      if (active.video.paused) active.video.play().catch(() => {});
-    } else {
-      if (!active.video.paused) active.video.pause();
-    }
+    // image: 静止画なので再生制御不要
   }
 
   pauseAll() {
     for (const c of this.clips) {
-      if (!c.video.paused) c.video.pause();
+      if ((c.kind || 'video') === 'video' && !c.video.paused) c.video.pause();
     }
   }
 
   draw(ctx, W, H) {
     if (this.activeIdx < 0) return;
     const c = this.clips[this.activeIdx];
-    if (!c || c.video.readyState < 2) return;
-    const vw = c.video.videoWidth;
-    const vh = c.video.videoHeight;
-    if (!vw || !vh) return;
-    const scale = Math.max(W / vw, H / vh);
-    const dw = vw * scale;
-    const dh = vh * scale;
-    const dx = (W - dw) / 2;
-    const dy = (H - dh) / 2;
-    ctx.drawImage(c.video, dx, dy, dw, dh);
+    if (!c) return;
+    const kind = c.kind || 'video';
+    if (kind === 'video') {
+      if (c.video.readyState < 2) return;
+      const vw = c.video.videoWidth;
+      const vh = c.video.videoHeight;
+      if (!vw || !vh) return;
+      const sc = Math.max(W / vw, H / vh);
+      const dw = vw * sc, dh = vh * sc;
+      ctx.drawImage(c.video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    } else if (kind === 'image') {
+      if (!c.img.complete) return;
+      const iw = c.img.naturalWidth;
+      const ih = c.img.naturalHeight;
+      if (!iw || !ih) return;
+      const sc = Math.max(W / iw, H / ih);
+      const dw = iw * sc, dh = ih * sc;
+      ctx.drawImage(c.img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    }
   }
 }

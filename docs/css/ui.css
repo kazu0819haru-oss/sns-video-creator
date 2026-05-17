@@ -987,3 +987,15 @@ body {
 .tl-add-btn {
   margin-left: 10px;
 }
+
+/* ============ Image Clip Style ============ */
+.tl-bar--image {
+  background: rgba(245, 158, 11, 0.15);
+  border-color: rgba(245, 158, 11, 0.5);
+}
+.tl-bar-fill--image {
+  background: rgba(245, 158, 11, 0.45);
+  display: flex;
+  align-items: center;
+  padding: 0 6px;
+}
