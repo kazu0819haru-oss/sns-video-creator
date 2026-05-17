@@ -1,9 +1,11 @@
 // ファイル種別を拡張子と MIME タイプから判定
 const AUDIO_EXT = ['.mp3', '.wav', '.m4a', '.ogg', '.flac', '.aac'];
 const LRC_EXT = ['.lrc', '.txt'];
+const VIDEO_EXT = ['.mp4', '.mov', '.webm', '.mkv', '.avi'];
 
 export function getFileKind(file) {
   const name = file.name.toLowerCase();
+  if (file.type.startsWith('video/') || VIDEO_EXT.some(ext => name.endsWith(ext))) return 'video';
   if (file.type.startsWith('audio/') || AUDIO_EXT.some(ext => name.endsWith(ext))) return 'audio';
   if (LRC_EXT.some(ext => name.endsWith(ext))) return 'lrc';
   if (file.type.startsWith('image/')) return 'image';
@@ -44,6 +46,7 @@ export function attachFileDrop(targetEl, opts = {}) {
       if (kind === 'audio' && opts.onAudio) opts.onAudio(f);
       else if (kind === 'lrc' && opts.onLRC) opts.onLRC(f);
       else if (kind === 'image' && opts.onImage) opts.onImage(f);
+      else if (kind === 'video' && opts.onVideo) opts.onVideo(f);
     }
   });
 }
