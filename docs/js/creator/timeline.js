@@ -53,13 +53,39 @@ export class Timeline {
       this._addTrimHandles(bar, fill, this.audioTrim.duration,
         () => this.audioTrim.trimStart,
         () => this.audioTrim.trimEnd ?? this.audioTrim.duration,
-        (s) => { this.audioTrim.setStart(s); this._updateVideoSpacer(); },
-        (e) => this.audioTrim.setEnd(e));
+        (s, _finalize) => { this.audioTrim.setStart(s); this._updateVideoSpacer(); },
+        (e, _finalize) => this.audioTrim.setEnd(e));
 
       const ph = document.createElement('div');
       ph.className = 'tl-playhead';
       ph.id = 'tl-playhead';
+      ph.title = 'ドラッグして再生位置を変更';
       bar.appendChild(ph);
+
+      // プレイヘッドのドラッグでシーク
+      const startDragSeek = (clientX) => {
+        const rect = bar.getBoundingClientRect();
+        const ratio = Math.max(0, Math.min(1, (clientX - rect.left) / rect.width));
+        const t = ratio * this.audioTrim.duration;
+        if (this.onSeek) this.onSeek(t);
+      };
+      ph.addEventListener('mousedown', ev => {
+        ev.preventDefault();
+        ev.stopPropagation();
+        const onMove = e => startDragSeek(e.clientX);
+        const onUp = () => {
+          window.removeEventListener('mousemove', onMove);
+          window.removeEventListener('mouseup', onUp);
+        };
+        window.addEventListener('mousemove', onMove);
+        window.addEventListener('mouseup', onUp);
+      });
+
+      // 音源バー任意位置クリックでシーク（ハンドル除く）
+      bar.addEventListener('click', ev => {
+        if (ev.target.closest('.tl-handle')) return;
+        startDragSeek(ev.clientX);
+      });
     } else {
       track.innerHTML = '<span class="tl-empty">音源を読み込むとここにタイムラインが表示されます</span>';
     }
@@ -123,8 +149,8 @@ export class Timeline {
         bar, fill, clip.duration,
         () => clip.trimStart,
         () => clip.trimEnd,
-        (s) => this.videoClips.setTrim(i, s, clip.trimEnd),
-        (e) => this.videoClips.setTrim(i, clip.trimStart, e),
+        (s, finalize) => this.videoClips.setTrim(i, s, clip.trimEnd, !finalize),
+        (e, finalize) => this.videoClips.setTrim(i, clip.trimStart, e, !finalize),
       );
 
       this._installDragReorder(bar, i, track);
@@ -242,11 +268,14 @@ export class Timeline {
           const rect = bar.getBoundingClientRect();
           const ratio = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width));
           const t = ratio * duration;
-          if (isLeft) setStart(t);
-          else setEnd(t);
+          if (isLeft) setStart(t, false); // suppress notify during drag
+          else setEnd(t, false);
           updateFill();
         };
         const onUp = () => {
+          // 最終値で notify を発火させ、UI を一度だけ再描画
+          if (isLeft) setStart(getStart(), true);
+          else setEnd(getEnd(), true);
           window.removeEventListener('mousemove', onMove);
           window.removeEventListener('mouseup', onUp);
         };

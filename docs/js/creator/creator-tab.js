@@ -62,9 +62,9 @@ export function initCreatorTab() {
     lastLineIdx: -1,
     lineStartTime: 0,
     editMode: false,
-    title:  { text: '', font: getFontById('shippori-mincho').family, color: '#ffffff', sizeScale: 1.0, shadow: 14, background: 'none', x: 0.5, y: 0.065, visible: true },
-    band:   { text: '', font: getFontById('shippori-mincho').family, color: '#cccccc', sizeScale: 0.7, shadow: 12, background: 'none', x: 0.5, y: 0.105, visible: true },
-    lyrics: { enabled: true, font: getFontById('shippori-mincho').family, color: '#ffffff', sizeScale: 1.0, shadow: 18, background: 'none', x: 0.5, y: 0.5, effect: 'none' },
+    title:  { text: '', font: getFontById('shippori-mincho').family, color: '#ffffff', sizeScale: 1.0, shadow: 14, background: 'none', x: 0.5, y: 0.065, vertical: false, visible: true },
+    band:   { text: '', font: getFontById('shippori-mincho').family, color: '#cccccc', sizeScale: 0.7, shadow: 12, background: 'none', x: 0.5, y: 0.105, vertical: false, visible: true },
+    lyrics: { enabled: true, font: getFontById('shippori-mincho').family, color: '#ffffff', sizeScale: 1.0, shadow: 18, background: 'none', x: 0.5, y: 0.5, vertical: false, effect: 'none' },
   };
 
   const stepGuide = new StepGuide($('step-bar-creator'), [
@@ -538,8 +538,25 @@ function makeSubsection(title, target, isLyrics = false) {
   wrap.appendChild(makeRangeField('シャドウ', target, 'shadow', 0, 40, 1, v => v + 'px'));
   // 背景
   wrap.appendChild(makeBackgroundField(target));
+  // 縦書きトグル
+  wrap.appendChild(makeVerticalField(target));
 
   return wrap;
+}
+
+function makeVerticalField(target) {
+  const row = document.createElement('div');
+  row.className = 'field-row';
+  const label = document.createElement('div');
+  label.className = 'field-label';
+  label.textContent = '縦書き';
+  row.appendChild(label);
+  const sw = document.createElement('label');
+  sw.className = 'toggle-switch';
+  sw.innerHTML = `<input type="checkbox" ${target.vertical ? 'checked' : ''}><span class="toggle-slider"></span>`;
+  sw.querySelector('input').addEventListener('change', e => { target.vertical = e.target.checked; });
+  row.appendChild(sw);
+  return row;
 }
 
 function makeFontField(target) {

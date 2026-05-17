@@ -97,13 +97,58 @@ export function drawLyrics(ctx, W, H, lyricsData, opts = {}) {
     }
   }
 
-  ctx.shadowColor = 'rgba(0,0,0,1)';
-  ctx.shadowBlur = shadowBlur + extraGlow;
-  ctx.fillStyle = color;
-  ctx.fillText(displayText, cx, cy + yOffset);
-  ctx.shadowBlur = (shadowBlur + extraGlow) / 3;
-  ctx.fillText(displayText, cx, cy + yOffset);
+  if (opts.vertical) {
+    drawVerticalText(ctx, displayText, cx, cy + yOffset, baseSize, color, shadowBlur + extraGlow, opts.background);
+  } else {
+    ctx.shadowColor = 'rgba(0,0,0,1)';
+    ctx.shadowBlur = shadowBlur + extraGlow;
+    ctx.fillStyle = color;
+    ctx.fillText(displayText, cx, cy + yOffset);
+    ctx.shadowBlur = (shadowBlur + extraGlow) / 3;
+    ctx.fillText(displayText, cx, cy + yOffset);
+  }
   ctx.restore();
+}
+
+// 縦書きヘルパー: 文字を1文字ずつ縦に積む
+function drawVerticalText(ctx, text, cx, cyCenter, charSize, color, shadowBlur, bgMode) {
+  const chars = [...text];
+  if (chars.length === 0) return;
+  const lineHeight = charSize * 1.05;
+  const startY = cyCenter - ((chars.length - 1) * lineHeight) / 2;
+
+  // 背景帯（縦長）
+  if (bgMode === 'bar' || bgMode === 'blur') {
+    const padX = charSize * 0.5;
+    const padY = charSize * 0.4;
+    const w = charSize + padX * 2;
+    const h = chars.length * lineHeight + padY * 2 - lineHeight + charSize;
+    const bx = cx - w / 2;
+    const by = startY - charSize / 2 - padY;
+    if (bgMode === 'bar') {
+      ctx.fillStyle = 'rgba(0,0,0,0.55)';
+      roundRect(ctx, bx, by, w, h, charSize * 0.25);
+      ctx.fill();
+    } else {
+      ctx.save();
+      ctx.filter = 'blur(8px)';
+      ctx.fillStyle = 'rgba(0,0,0,0.5)';
+      roundRect(ctx, bx - 8, by - 8, w + 16, h + 16, charSize * 0.3);
+      ctx.fill();
+      ctx.restore();
+    }
+  }
+
+  ctx.shadowColor = 'rgba(0,0,0,1)';
+  ctx.shadowBlur = shadowBlur;
+  ctx.fillStyle = color;
+  for (let i = 0; i < chars.length; i++) {
+    ctx.fillText(chars[i], cx, startY + i * lineHeight);
+  }
+  ctx.shadowBlur = shadowBlur / 3;
+  for (let i = 0; i < chars.length; i++) {
+    ctx.fillText(chars[i], cx, startY + i * lineHeight);
+  }
 }
 
 // タイトルやバンド名を1行のテキストとして描画する汎用関数
@@ -143,10 +188,14 @@ export function drawTextLine(ctx, W, H, text, opts = {}) {
     }
   }
 
-  ctx.shadowColor = 'rgba(0,0,0,0.95)';
-  ctx.shadowBlur = shadowBlur;
-  ctx.fillStyle = opts.color || 'rgba(255,255,255,0.92)';
-  ctx.fillText(text, cx, cy);
+  if (opts.vertical) {
+    drawVerticalText(ctx, text, cx, cy, baseSize, opts.color || 'rgba(255,255,255,0.92)', shadowBlur, opts.background);
+  } else {
+    ctx.shadowColor = 'rgba(0,0,0,0.95)';
+    ctx.shadowBlur = shadowBlur;
+    ctx.fillStyle = opts.color || 'rgba(255,255,255,0.92)';
+    ctx.fillText(text, cx, cy);
+  }
   ctx.restore();
 }
 

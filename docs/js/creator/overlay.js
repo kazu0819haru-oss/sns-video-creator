@@ -22,6 +22,7 @@ export function drawOverlay(ctx, W, H, opts) {
       background: opts.title.background,
       x: opts.title.x,
       y: opts.title.y,
+      vertical: opts.title.vertical,
       weight: 500,
     });
   }
@@ -36,6 +37,7 @@ export function drawOverlay(ctx, W, H, opts) {
       background: opts.band.background,
       x: opts.band.x,
       y: opts.band.y,
+      vertical: opts.band.vertical,
       weight: 400,
     });
   }
@@ -50,6 +52,7 @@ export function drawOverlay(ctx, W, H, opts) {
     background: opts.lyrics?.background,
     x: opts.lyrics?.x,
     y: opts.lyrics?.y,
+    vertical: opts.lyrics?.vertical,
     effect: opts.lyrics?.effect,
     currentLineIdx: opts.lyrics?.currentLineIdx,
     lineStartTime: opts.lyrics?.lineStartTime,

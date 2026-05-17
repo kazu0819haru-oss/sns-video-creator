@@ -896,3 +896,66 @@ body {
   border-radius: 6px;
   pointer-events: none;
 }
+
+/* ============ FINAL Scroll Reset (overrides earlier attempts) ============ */
+html { height: auto !important; }
+html, body {
+  min-height: 100vh !important;
+  max-height: none !important;
+}
+body {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.tab-panel.is-active {
+  min-height: 0 !important;
+  overflow: visible !important;
+}
+.creator-layout {
+  height: auto !important;
+  min-height: 0 !important;
+  grid-template-rows: auto auto !important;
+}
+.creator-layout > .stage {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.creator-layout > .properties-panel {
+  height: auto !important;
+  max-height: calc(100vh - 260px) !important;
+  min-height: 240px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+}
+.creator-layout .canvas-wrap {
+  max-height: calc(100vh - 320px) !important;
+}
+.timeline-panel {
+  max-height: 200px !important;
+  overflow-y: auto !important;
+}
+
+/* プレイヘッドをドラッグ可能に */
+.tl-playhead {
+  cursor: ew-resize !important;
+  pointer-events: auto !important;
+  width: 8px !important;
+  margin-left: -3px;
+}
+.tl-playhead::before {
+  content: '';
+  position: absolute;
+  top: -2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 14px;
+  height: 14px;
+  background: #ffd700;
+  border-radius: 50%;
+  box-shadow: 0 0 8px rgba(255,215,0,0.8);
+}
+.tl-bar--audio {
+  cursor: pointer;
+}

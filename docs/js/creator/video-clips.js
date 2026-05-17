@@ -87,12 +87,12 @@ export class VideoClips {
     this._notify();
   }
 
-  setTrim(idx, trimStart, trimEnd) {
+  setTrim(idx, trimStart, trimEnd, suppressNotify = false) {
     const c = this.clips[idx];
     if (!c) return;
     c.trimStart = Math.max(0, Math.min(trimStart, c.duration));
     c.trimEnd = Math.max(c.trimStart, Math.min(trimEnd, c.duration));
-    this._notify();
+    if (!suppressNotify) this._notify();
   }
 
   totalDuration() {
