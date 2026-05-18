@@ -54,6 +54,7 @@ export function drawOverlay(ctx, W, H, opts) {
     y: opts.lyrics?.y,
     vertical: opts.lyrics?.vertical,
     effect: opts.lyrics?.effect,
+    earlyHide: opts.lyrics?.earlyHide,
     currentLineIdx: opts.lyrics?.currentLineIdx,
     lineStartTime: opts.lyrics?.lineStartTime,
     currentTime: opts.currentTime,

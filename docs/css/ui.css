@@ -672,12 +672,14 @@ select option[disabled] {
 
 .tl-clip-tools {
   position: absolute;
-  top: -22px;
-  right: 0;
+  top: 50%;
+  right: 4px;
+  transform: translateY(-50%);
   display: flex;
   gap: 2px;
   opacity: 0;
   transition: opacity 0.15s;
+  z-index: 10;
 }
 .tl-bar:hover .tl-clip-tools { opacity: 1; }
 .tl-tool-btn {

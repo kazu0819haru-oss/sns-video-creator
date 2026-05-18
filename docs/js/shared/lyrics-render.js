@@ -68,6 +68,18 @@ export function drawLyrics(ctx, W, H, lyricsData, opts = {}) {
     }
   }
 
+  // 切り替え前フェードアウト: 次行の開始 300ms 前から消えていく
+  if (opts.earlyHide) {
+    const nextLine = lyricsData?.all[idx + 1];
+    if (nextLine?.time != null) {
+      const timeUntilNext = nextLine.time - (opts.currentTime ?? 0);
+      const fadeDur = 0.5;
+      if (timeUntilNext < fadeDur) {
+        alpha *= Math.max(0, timeUntilNext / fadeDur);
+      }
+    }
+  }
+
   ctx.save();
   ctx.globalAlpha = alpha;
   ctx.font = `${weight} ${baseSize}px ${font}`;

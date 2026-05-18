@@ -11,6 +11,7 @@ export class VideoClips {
     this.clips = [];
     this.activeIdx = -1;
     this.onChange = null;
+    this._lastFrameCanvas = null; // readyState < 2 の間に表示する直前フレームのキャッシュ
   }
 
   _notify() { if (this.onChange) this.onChange(); }
@@ -177,6 +178,21 @@ export class VideoClips {
 
   sync(elapsed, isPlaying) {
     const target = this.getActiveAt(elapsed);
+
+    // 切り替わり 1 秒前に次クリップを trimStart へプリシーク
+    if (target) {
+      const ci = this.clips[target.idx];
+      const remaining = ci.trimEnd - target.localTime;
+      if (remaining < 1.0) {
+        const next = this.clips[target.idx + 1];
+        if (next && (next.kind || 'video') === 'video') {
+          if (Math.abs(next.video.currentTime - next.trimStart) > 0.05) {
+            next.video.currentTime = next.trimStart;
+          }
+        }
+      }
+    }
+
     if (!target) {
       if (this.activeIdx >= 0) {
         const prev = this.clips[this.activeIdx];
@@ -185,18 +201,24 @@ export class VideoClips {
       }
       return;
     }
-    if (target.idx !== this.activeIdx) {
+
+    const switched = target.idx !== this.activeIdx;
+    if (switched) {
       if (this.activeIdx >= 0) {
         const prev = this.clips[this.activeIdx];
         if (prev && (prev.kind || 'video') === 'video') prev.video.pause();
       }
       this.activeIdx = target.idx;
     }
+
     const active = this.clips[this.activeIdx];
     if (!active) return;
     if ((active.kind || 'video') === 'video') {
       const drift = Math.abs(active.video.currentTime - target.localTime);
-      if (drift > 0.25) active.video.currentTime = target.localTime;
+      // 切り替え時は必ずシーク（プリシークで済んでいれば drift ≈ 0 で即座）
+      if (switched || drift > 0.25) {
+        active.video.currentTime = target.localTime;
+      }
       if (isPlaying) {
         if (active.video.paused) active.video.play().catch(() => {});
       } else {
@@ -213,18 +235,26 @@ export class VideoClips {
   }
 
   draw(ctx, W, H) {
-    if (this.activeIdx < 0) return;
+    if (this.activeIdx < 0) {
+      this._drawCached(ctx);
+      return;
+    }
     const c = this.clips[this.activeIdx];
     if (!c) return;
     const kind = c.kind || 'video';
     if (kind === 'video') {
-      if (c.video.readyState < 2) return;
+      if (c.video.readyState < 2) {
+        // シーク中は直前フレームを維持してブラックフラッシュを防ぐ
+        this._drawCached(ctx);
+        return;
+      }
       const vw = c.video.videoWidth;
       const vh = c.video.videoHeight;
       if (!vw || !vh) return;
       const sc = Math.max(W / vw, H / vh);
       const dw = vw * sc, dh = vh * sc;
       ctx.drawImage(c.video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+      this._cacheFrame(c.video, vw, vh, W, H);
     } else if (kind === 'image') {
       if (!c.img.complete) return;
       const iw = c.img.naturalWidth;
@@ -233,6 +263,25 @@ export class VideoClips {
       const sc = Math.max(W / iw, H / ih);
       const dw = iw * sc, dh = ih * sc;
       ctx.drawImage(c.img, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    }
+  }
+
+  // 直前の動画フレームを OffscreenCanvas にキャッシュ
+  _cacheFrame(video, vw, vh, W, H) {
+    if (!this._lastFrameCanvas || this._lastFrameCanvas.width !== W || this._lastFrameCanvas.height !== H) {
+      this._lastFrameCanvas = new OffscreenCanvas(W, H);
+    }
+    const fc = this._lastFrameCanvas.getContext('2d');
+    fc.clearRect(0, 0, W, H);
+    const sc = Math.max(W / vw, H / vh);
+    const dw = vw * sc, dh = vh * sc;
+    fc.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+  }
+
+  // キャッシュがあればそれを描画
+  _drawCached(ctx) {
+    if (this._lastFrameCanvas) {
+      ctx.drawImage(this._lastFrameCanvas, 0, 0);
     }
   }
 }

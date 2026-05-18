@@ -25,6 +25,7 @@ import { PRESETS, getPresetById } from './platform-presets.js';
 import { IntroOutro } from './intro-outro.js';
 import { PhonePreview } from './phone-preview.js';
 import { SUGGESTIONS, pickRandom } from './sns-suggestions.js';
+import { QUALITY_PRESETS, DEFAULT_QUALITY_ID, getQualityById } from '../shared/quality-presets.js';
 
 const EFFECTS = [
   { id: 'none', label: 'なし' },
@@ -67,7 +68,8 @@ export function initCreatorTab() {
     editMode: false,
     title:  { text: '', font: getFontById('shippori-mincho').family, color: '#ffffff', sizeScale: 1.0, shadow: 14, background: 'none', x: 0.5, y: 0.065, vertical: false, visible: true },
     band:   { text: '', font: getFontById('shippori-mincho').family, color: '#cccccc', sizeScale: 0.7, shadow: 12, background: 'none', x: 0.5, y: 0.105, vertical: false, visible: true },
-    lyrics: { enabled: true, font: getFontById('shippori-mincho').family, color: '#ffffff', sizeScale: 1.0, shadow: 18, background: 'none', x: 0.5, y: 0.5, vertical: false, effect: 'none' },
+    lyrics: { enabled: true, font: getFontById('shippori-mincho').family, color: '#ffffff', sizeScale: 1.0, shadow: 18, background: 'none', x: 0.5, y: 0.5, vertical: false, effect: 'none', earlyHide: false },
+    qualityId: DEFAULT_QUALITY_ID,
   };
 
   const stepGuide = new StepGuide($('step-bar-creator'), [
@@ -270,14 +272,22 @@ export function initCreatorTab() {
       $('c-rec-btn').textContent = '● 録画';
       $('c-rec-btn').classList.remove('is-recording');
     } else {
+      recorder.onProgress = (pct) => {
+        if (pct < 0) {
+          $('c-meta').textContent = 'FFmpeg 読み込み中…（初回のみ約 30MB）';
+        } else {
+          $('c-meta').textContent = `MP4 変換中… ${pct}%`;
+        }
+      };
       recorder.onStop = async (blob, format) => {
+        recorder.onProgress = null;
         if (!blob) {
           $('c-rec-btn').textContent = '● 録画';
           $('c-rec-btn').classList.remove('is-recording');
           $('c-meta').textContent = '録画失敗';
           return;
         }
-        const ext = format || 'webm';
+        const ext = format || 'mp4';
         const filename = `${state.trackTitle || 'visualizer'}-${formatStamp()}.${ext}`;
         const result = await saveBlob(blob, filename);
         $('c-rec-btn').textContent = '● 録画';
@@ -287,7 +297,7 @@ export function initCreatorTab() {
           ? `保存: ${result.path}`
           : `保存: ${filename}（ダウンロード）`;
       };
-      recorder.start(canvas, audioGraph.destNode.stream);
+      recorder.start(canvas, audioGraph.destNode.stream, getQualityById(state.qualityId));
       $('c-rec-btn').textContent = '■ 停止';
       $('c-rec-btn').classList.add('is-recording');
       audioGraph.resume();
@@ -422,6 +432,7 @@ export function initCreatorTab() {
       title: { ...state.title },
       band: { ...state.band },
       lyrics: { ...state.lyrics },
+      qualityId: state.qualityId,
       intro: { ...introOutro.intro },
       outro: { ...introOutro.outro },
     };
@@ -458,6 +469,7 @@ export function initCreatorTab() {
     if (data.title) Object.assign(state.title, data.title);
     if (data.band) Object.assign(state.band, data.band);
     if (data.lyrics) Object.assign(state.lyrics, data.lyrics);
+    if (data.qualityId) state.qualityId = data.qualityId;
     if (data.intro) Object.assign(introOutro.intro, data.intro);
     if (data.outro) Object.assign(introOutro.outro, data.outro);
     // UI を再構築して値を反映
@@ -836,6 +848,36 @@ function makeBackgroundField(target) {
 function buildEffectsSection(container, state) {
   container.innerHTML = '';
 
+  // ── 録画品質 ──
+  const qRow = document.createElement('div');
+  qRow.className = 'field';
+
+  const qLabel = document.createElement('div');
+  qLabel.className = 'field-label';
+  qLabel.textContent = '録画品質';
+  qRow.appendChild(qLabel);
+
+  const qSelect = document.createElement('select');
+  qSelect.className = 'select';
+  QUALITY_PRESETS.forEach(q => {
+    const opt = document.createElement('option');
+    opt.value = q.id;
+    opt.textContent = q.label;
+    if ((state.qualityId ?? DEFAULT_QUALITY_ID) === q.id) opt.selected = true;
+    qSelect.appendChild(opt);
+  });
+  qSelect.addEventListener('change', () => { state.qualityId = qSelect.value; });
+  qRow.appendChild(qSelect);
+
+  const qHint = document.createElement('div');
+  qHint.className = 'field-label';
+  qHint.style.cssText = 'font-size:10px;line-height:1.6;margin-top:4px;';
+  qHint.textContent = '「高」以上は 60fps。非 WebCodecs ブラウザでは FFmpeg で MP4 変換（初回のみ時間がかかります）。';
+  qRow.appendChild(qHint);
+
+  container.appendChild(qRow);
+
+  // ── 歌詞エフェクト ──
   const row = document.createElement('div');
   row.className = 'field';
 
@@ -865,6 +907,27 @@ function buildEffectsSection(container, state) {
   row.appendChild(hint);
 
   container.appendChild(row);
+
+  // 切り替え前フェードアウト オプション
+  const earlyHideRow = document.createElement('div');
+  earlyHideRow.className = 'field';
+  earlyHideRow.style.cssText = 'display:flex; align-items:center; gap:6px; margin-top:8px;';
+
+  const earlyHideCheck = document.createElement('input');
+  earlyHideCheck.type = 'checkbox';
+  earlyHideCheck.id = 'c-early-hide';
+  earlyHideCheck.checked = state.lyrics.earlyHide ?? false;
+  earlyHideCheck.addEventListener('change', () => { state.lyrics.earlyHide = earlyHideCheck.checked; });
+
+  const earlyHideLabel = document.createElement('label');
+  earlyHideLabel.htmlFor = 'c-early-hide';
+  earlyHideLabel.className = 'field-label';
+  earlyHideLabel.style.cssText = 'cursor:pointer; margin-bottom:0; font-size:12px;';
+  earlyHideLabel.textContent = '切り替え時に早めに消える（0.5秒前）';
+
+  earlyHideRow.appendChild(earlyHideCheck);
+  earlyHideRow.appendChild(earlyHideLabel);
+  container.appendChild(earlyHideRow);
 }
 
 function buildLogoSection(container, logo) {
