@@ -57,22 +57,33 @@ export class Recorder {
     const videoBps = q.videoBitrate ?? 16_000_000;
     const audioBps = q.audioBitrate ?? 256_000;
 
-    let options = { mimeType: 'video/webm;codecs=vp9,opus', videoBitsPerSecond: videoBps, audioBitsPerSecond: audioBps };
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-      options = { mimeType: 'video/webm;codecs=vp8,opus', videoBitsPerSecond: videoBps, audioBitsPerSecond: audioBps };
-    }
-    if (!MediaRecorder.isTypeSupported(options.mimeType)) {
-      options = { mimeType: 'video/webm', videoBitsPerSecond: videoBps };
-    }
+    const mimeTypes = [
+      'video/webm;codecs=vp9,opus',
+      'video/webm;codecs=vp8,opus',
+      'video/webm',
+      'video/mp4;codecs=avc1,mp4a', // iOS Safari
+      'video/mp4',
+    ];
+    const supportedMime = mimeTypes.find(m => MediaRecorder.isTypeSupported(m)) ?? '';
+    const isMP4Native = supportedMime.includes('mp4');
+    const options = supportedMime
+      ? { mimeType: supportedMime, videoBitsPerSecond: videoBps, audioBitsPerSecond: audioBps }
+      : {};
+    console.log('[Recorder] WebM mime:', supportedMime || '(browser default)');
 
     this._mediaRecorder = new MediaRecorder(combined, options);
     this._mediaRecorder.ondataavailable = e => {
       if (e.data && e.data.size > 0) this._chunks.push(e.data);
     };
     this._mediaRecorder.onstop = async () => {
-      const webmBlob = new Blob(this._chunks, { type: 'video/webm' });
+      const blob = new Blob(this._chunks, { type: supportedMime || 'video/webm' });
       this.isRecording = false;
-      await this._convertToMP4(webmBlob);
+      if (isMP4Native) {
+        // iOS Safari など MediaRecorder が直接 MP4 を吐く場合は変換不要
+        if (this.onStop) this.onStop(blob, 'mp4');
+      } else {
+        await this._convertToMP4(blob);
+      }
     };
     this._mediaRecorder.start();
     this.isRecording = true;

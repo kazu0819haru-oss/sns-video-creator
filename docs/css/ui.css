@@ -1001,3 +1001,106 @@ body {
   align-items: center;
   padding: 0 6px;
 }
+
+/* ============ Mobile / Tablet Responsive ============ */
+@media (max-width: 768px) {
+  body {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  /* タブバー: 折り返し & セッション UI 圧縮 */
+  .tab-bar {
+    flex-wrap: wrap;
+    align-self: stretch;
+    gap: 4px;
+  }
+  .session-status { display: none; }
+  .session-control { padding-left: 8px; border-left: none; }
+  .session-control .btn { font-size: 11px; padding: 5px 8px; }
+
+  /* ツールバー: 折り返し & コンパクト */
+  .toolbar { padding: 8px 10px; gap: 6px; }
+
+  /* タッチターゲット: Apple HIG 44pt */
+  .btn { min-height: 44px; padding: 8px 12px; font-size: 12px; }
+  /* iOS は font-size < 16px の input/select でズームしてしまう */
+  .select, .text-input {
+    min-height: 44px;
+    font-size: 16px;
+  }
+  input[type="range"].seek-bar {
+    height: 24px;
+  }
+
+  /* Creator レイアウト: 縦積みシングルカラム */
+  .creator-layout {
+    display: flex !important;
+    flex-direction: column !important;
+    height: auto !important;
+    min-height: 0 !important;
+    gap: 10px;
+  }
+  .creator-layout > .stage {
+    height: auto !important;
+    max-height: none !important;
+    overflow: visible !important;
+    justify-content: center;
+  }
+  /* Canvas: 画面の半分程度のプレビューサイズに（svh = iOSアドレスバー考慮） */
+  .creator-layout .canvas-wrap {
+    height: auto !important;
+    max-height: 50vh !important;
+    max-height: 50svh !important;
+    max-width: 100% !important;
+    width: auto;
+  }
+
+  /* プロパティパネル: 全幅・高さ自動 */
+  .creator-layout > .properties-panel {
+    width: 100% !important;
+    height: auto !important;
+    max-height: none !important;
+    min-height: auto !important;
+    overflow-y: visible !important;
+  }
+  /* アコーディオン内スクロール高さを下げる */
+  .accordion[open] > .accordion-body {
+    max-height: 40vh !important;
+  }
+
+  /* タイムライン */
+  .timeline-panel {
+    max-height: 160px !important;
+  }
+
+  /* iOS のモーメンタムスクロール */
+  .properties-panel,
+  .accordion-body,
+  .tl-track {
+    -webkit-overflow-scrolling: touch;
+  }
+
+  /* 配置編集ボタン: 小さく */
+  .edit-mode-btn {
+    font-size: 11px;
+    padding: 4px 8px;
+  }
+
+  /* ステップガイド: コンパクト */
+  .step-bar { gap: 4px; }
+  .step-item { font-size: 10px; padding: 4px 8px; }
+}
+
+/* スマートフォン（≤ 480px）: さらにコンパクト */
+@media (max-width: 480px) {
+  /* canvas を画面幅いっぱいに、高さで絞る */
+  .creator-layout .canvas-wrap {
+    max-height: 45svh !important;
+    max-height: 45vh !important;
+  }
+  /* toolbar のテキスト入力欄を隠す（録音時には不要） */
+  #c-song-title, #c-band-name { display: none; }
+  /* セッションボタン全体を非表示 */
+  .session-control { display: none; }
+}

@@ -266,16 +266,19 @@ export class VideoClips {
     }
   }
 
-  // 直前の動画フレームを OffscreenCanvas にキャッシュ
+  // 直前の動画フレームを OffscreenCanvas にキャッシュ（非対応環境はスキップ）
   _cacheFrame(video, vw, vh, W, H) {
-    if (!this._lastFrameCanvas || this._lastFrameCanvas.width !== W || this._lastFrameCanvas.height !== H) {
-      this._lastFrameCanvas = new OffscreenCanvas(W, H);
-    }
-    const fc = this._lastFrameCanvas.getContext('2d');
-    fc.clearRect(0, 0, W, H);
-    const sc = Math.max(W / vw, H / vh);
-    const dw = vw * sc, dh = vh * sc;
-    fc.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    if (typeof OffscreenCanvas === 'undefined') return;
+    try {
+      if (!this._lastFrameCanvas || this._lastFrameCanvas.width !== W || this._lastFrameCanvas.height !== H) {
+        this._lastFrameCanvas = new OffscreenCanvas(W, H);
+      }
+      const fc = this._lastFrameCanvas.getContext('2d');
+      fc.clearRect(0, 0, W, H);
+      const sc = Math.max(W / vw, H / vh);
+      const dw = vw * sc, dh = vh * sc;
+      fc.drawImage(video, (W - dw) / 2, (H - dh) / 2, dw, dh);
+    } catch (_) {}
   }
 
   // キャッシュがあればそれを描画
